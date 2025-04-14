@@ -1,0 +1,12 @@
+model TierAppForm {
+    id      String @id @default(uuid())
+    package String
+
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("tier_app_forms")
+}

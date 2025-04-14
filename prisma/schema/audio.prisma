@@ -1,0 +1,11 @@
+model Audio {
+    id        String   @id @default(uuid())
+    audioUrl  String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    userId String? // Optional user ID to allow anonymous uploads
+    user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+    @@map("audios")
+}

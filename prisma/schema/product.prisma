@@ -1,0 +1,20 @@
+model Product {
+    id String @id @default(uuid())
+
+    productName   String   @map("product_name")
+    category      String[]
+    productImgUrl String
+    description   String
+    sellingPrice  Float    @map("selling_price")
+    isPublished   Boolean  @default(true)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    userId       String
+    user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+    Variation    Variation[]
+    WishlistItem WishlistItem[]
+
+    @@map("products")
+}

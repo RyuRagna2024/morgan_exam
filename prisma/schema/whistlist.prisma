@@ -1,0 +1,29 @@
+// New Wishlist model
+model Wishlist {
+    id        String   @id @default(uuid())
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    userId String         @unique // One wishlist per user
+    user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+    items  WishlistItem[] // Relation to wishlist items
+
+    @@map("wishlists")
+}
+
+// New WishlistItem model for product variations in the wishlist
+model WishlistItem {
+    id        String   @id @default(uuid())
+    createdAt DateTime @default(now())
+
+    wishlistId String
+    wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+
+    variationId String
+    variation   Variation @relation(fields: [variationId], references: [id], onDelete: Cascade)
+    Product     Product?  @relation(fields: [productId], references: [id])
+    productId   String?
+
+    @@unique([wishlistId, variationId]) // Prevent duplicate variations in wishlist
+    @@map("wishlist_items")
+}
