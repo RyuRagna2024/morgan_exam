@@ -31,11 +31,14 @@ export interface SessionWithUser extends LuciaSession {
   user: SessionUser;
 }
 
-// Define the context interface with updateAvatar function
+// Updated context interface with profile update function
 interface SessionContext {
   user: SessionUser;
   session: SessionWithUser;
-  updateAvatar: (newAvatarUrl: string) => void;
+  updateProfile: (updates: {
+    avatarUrl?: string;
+    backgroundUrl?: string;
+  }) => void;
 }
 
 const SessionContext = createContext<SessionContext | null>(null);
@@ -50,25 +53,26 @@ export default function SessionProvider({
     session: LuciaSession;
   };
 }) {
-  // Use state to store the user data so we can update it
   const [userData, setUserData] = useState<SessionUser>(value.user);
 
-  // Function to update avatar URL in the session context
-  const updateAvatar = (newAvatarUrl: string) => {
+  // Updated function to handle both avatar and background updates
+  const updateProfile = (updates: {
+    avatarUrl?: string;
+    backgroundUrl?: string;
+  }) => {
     setUserData((prevUser) => ({
       ...prevUser,
-      avatarUrl: newAvatarUrl,
+      ...updates,
     }));
   };
 
-  // Transform the value to match our SessionContext type
   const sessionValue: SessionContext = {
     user: userData,
     session: {
       ...value.session,
       user: userData,
     },
-    updateAvatar,
+    updateProfile,
   };
 
   return (

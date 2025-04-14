@@ -19,6 +19,12 @@ html {
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Add the dynamic background class */
+  .dynamic-bg {
+    background-size: cover;
+    background-position: center;
+  }
 }
 
 @layer base {
