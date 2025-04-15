@@ -10,7 +10,7 @@
 
 ## Question 3
 
-[] For the /customer under the support in the sidebar create a messaging system, where a customer can send a message to admin with a title, their name, email and the actually support message.
+[x] For the /customer under the support in the sidebar create a messaging system, where a customer can send a message to admin with a title, their name, email and the actually support message.
 
 [] on the admin panel create a route for the admin sidebar that shows all the messages that came from a customer.
 

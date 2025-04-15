@@ -1,3 +1,6 @@
+// src/components/customer/(sidebar)/NavigationLinks.tsx
+// (Assuming this is the correct path based on your other components)
+
 import Link from "next/link";
 import {
   ShoppingBag,
@@ -6,7 +9,7 @@ import {
   Calendar,
   CreditCard,
   Settings,
-  HelpCircle,
+  HelpCircle, // Ensure HelpCircle is imported
 } from "lucide-react";
 
 // Update the interface to include currentPath
@@ -28,6 +31,7 @@ export default function NavigationLinks({
   };
 
   // Navigation items array for cleaner code and easier maintenance
+  // --- REORDERED ITEMS BELOW ---
   const navItems = [
     {
       href: "/",
@@ -43,9 +47,12 @@ export default function NavigationLinks({
       icon: CreditCard,
       label: "Payment Methods",
     },
-    { href: "/customer/settings", icon: Settings, label: "Settings" },
+    // Moved the Support item here
     { href: "/customer/support", icon: HelpCircle, label: "Support" },
+    // Settings item now comes after Support
+    { href: "/customer/settings", icon: Settings, label: "Settings" },
   ];
+  // --- END OF REORDERED ITEMS ---
 
   return (
     <nav className="py-4">
@@ -62,13 +69,22 @@ export default function NavigationLinks({
                 className={`flex items-center py-3 ${
                   isCollapsed ? "justify-center px-0" : "px-6"
                 } hover:bg-slate-600 transition ${
-                  active ? "bg-slate-600 border-l-4 border-teal-500" : ""
+                  active
+                    ? "bg-slate-600 border-l-4 border-teal-500"
+                    : "border-l-4 border-transparent" // Add transparent border for consistent alignment
                 }`}
               >
-                <Icon className={isCollapsed ? "" : "mr-3"} size={20} />
-                {!isCollapsed && <span>{item.label}</span>}
+                <Icon
+                  className={`${isCollapsed ? "" : "mr-3"} flex-shrink-0`} // Added flex-shrink-0
+                  size={20}
+                />
+                {!isCollapsed && (
+                  <span className="truncate">{item.label}</span> // Added truncate
+                )}
                 {isCollapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 rounded text-sm whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity">
+                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 bg-slate-800 rounded text-sm whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity z-20">
+                    {" "}
+                    {/* Adjusted tooltip positioning and added z-index */}
                     {tooltipLabel}
                   </div>
                 )}

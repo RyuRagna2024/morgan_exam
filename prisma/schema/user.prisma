@@ -29,6 +29,7 @@ model User {
     TierAppForm            TierAppForm[]
     Cart                   Cart?
     Wishlist               Wishlist? // Relation to user's wishlist
+    submittedSupportTickets SupportTicket[]
 
     @@map("users")
 }

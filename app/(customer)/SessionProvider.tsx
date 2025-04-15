@@ -1,3 +1,4 @@
+// src/app/SessionProvider.tsx (Adjust path if needed)
 "use client";
 
 import React, { createContext, useContext, useState } from "react";
@@ -19,11 +20,14 @@ export interface SessionUser {
   firstName: string;
   lastName: string;
   displayName: string;
+  email: string; // <-- Add email here
   postcode: string;
   country: string;
   avatarUrl: string | null;
   backgroundUrl: string | null;
   role: UserRole;
+  // Add other fields you want available in the client-side session context
+  // Tier might not be needed client-side unless you use it for UI logic
 }
 
 // Extend Lucia's Session type with our user type
@@ -33,8 +37,8 @@ export interface SessionWithUser extends LuciaSession {
 
 // Updated context interface with profile update function
 interface SessionContext {
-  user: SessionUser;
-  session: SessionWithUser;
+  user: SessionUser | null; // Allow user to be null initially
+  session: SessionWithUser | null; // Allow session to be null initially
   updateProfile: (updates: {
     avatarUrl?: string;
     backgroundUrl?: string;
@@ -49,29 +53,35 @@ export default function SessionProvider({
 }: {
   children: React.ReactNode;
   value: {
-    user: SessionUser;
-    session: LuciaSession;
+    // Type for the initial value prop
+    user: SessionUser | null; // Allow null here too
+    session: LuciaSession | null; // Allow null
   };
 }) {
-  const [userData, setUserData] = useState<SessionUser>(value.user);
+  // Initialize state with the provided value, allowing null
+  const [userData, setUserData] = useState<SessionUser | null>(value.user);
 
   // Updated function to handle both avatar and background updates
   const updateProfile = (updates: {
     avatarUrl?: string;
     backgroundUrl?: string;
   }) => {
-    setUserData((prevUser) => ({
-      ...prevUser,
-      ...updates,
-    }));
+    setUserData((prevUser) => {
+      if (!prevUser) return null; // Handle case where user might be null
+      return {
+        ...prevUser,
+        ...updates, // Apply updates
+      };
+    });
   };
 
+  // Construct the session value, handling potential nulls
   const sessionValue: SessionContext = {
     user: userData,
-    session: {
-      ...value.session,
-      user: userData,
-    },
+    session:
+      value.session && userData
+        ? { ...value.session, user: userData } // Only create SessionWithUser if both exist
+        : null,
     updateProfile,
   };
 
@@ -87,5 +97,6 @@ export function useSession() {
   if (!context) {
     throw new Error("useSession must be used within a SessionProvider");
   }
+  // It's generally safer to return the context directly and let components handle null user/session
   return context;
 }

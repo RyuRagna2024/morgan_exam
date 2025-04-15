@@ -1,0 +1,28 @@
+// prisma/support-ticket.prisma
+
+model SupportTicket {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  title       String
+  name        String   // Name submitted with the form
+  email       String   // Email submitted with the form
+  message     String   @db.Text
+
+  attachmentUrl String?
+  status        TicketStatus @default(OPEN)
+
+  // Relation field linking back to the User model (defined in user.prisma)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+  RESOLVED
+}
+
+// DO NOT define 'model User' here again.

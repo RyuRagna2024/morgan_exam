@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { ChevronLeft } from "lucide-react";
-import { usePathname } from "next/navigation"; // Import usePathname hook
+import { usePathname } from "next/navigation";
 import ProfileSection from "./(sidebar)/ProfileSection";
 import StatsSection from "./(sidebar)/StatsSection";
 import NavigationLinks from "./(sidebar)/NavigationLinks";
 import { SessionUser } from "@/app/SessionProvider";
 
-// Define props interface directly in the file
 interface CustomerSidebarProps {
   user: SessionUser;
   orderCount: number;
@@ -22,10 +21,9 @@ export default function CustomerSidebar({
   wishlistCount,
 }: CustomerSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const pathname = usePathname(); // Get current pathname
+  const pathname = usePathname();
 
   useEffect(() => {
-    // Update main content margin based on sidebar state
     document
       .querySelector("main")
       ?.classList.remove(isCollapsed ? "ml-64" : "ml-16");
@@ -40,24 +38,39 @@ export default function CustomerSidebar({
 
   return (
     <div className="relative h-full">
+      {/* --- Modified Aside --- */}
       <aside
-        className={`${isCollapsed ? "w-16" : "w-64"} bg-slate-700 text-white fixed top-0 left-0 h-full transition-all duration-300 overflow-hidden pt-16 z-10`}
+        className={`${
+          isCollapsed ? "w-16" : "w-64"
+        } bg-slate-700 text-white fixed top-0 left-0 h-full transition-all duration-300 flex flex-col pt-16 z-10`} // Added flex flex-col, removed overflow-hidden
       >
-        {/* Profile Section */}
-        <ProfileSection user={user} isCollapsed={isCollapsed} />
+        {/* Top Section (Profile + Stats) - Fixed Height */}
+        <div className="flex-shrink-0">
+          {" "}
+          {/* Prevents this section from growing/shrinking */}
+          <ProfileSection user={user} isCollapsed={isCollapsed} />
+          {!isCollapsed && (
+            <StatsSection
+              orderCount={orderCount}
+              wishlistCount={wishlistCount}
+            />
+          )}
+        </div>
 
-        {/* Stats Section */}
-        {!isCollapsed && (
-          <StatsSection orderCount={orderCount} wishlistCount={wishlistCount} />
-        )}
-
-        {/* Navigation Links - pass current pathname */}
-        <NavigationLinks isCollapsed={isCollapsed} currentPath={pathname} />
+        {/* Navigation Links Section (Scrollable) */}
+        <div className="flex-grow overflow-y-auto">
+          {" "}
+          {/* Takes remaining space and allows vertical scrolling */}
+          <NavigationLinks isCollapsed={isCollapsed} currentPath={pathname} />
+        </div>
+        {/* --- End Modified Aside Content Structure --- */}
       </aside>
 
-      {/* Toggle Button - moved down by 80px */}
+      {/* Toggle Button - position remains the same */}
       <div
-        className={`fixed ${isCollapsed ? "left-16" : "left-64"} top-100 transition-all duration-300 z-20`}
+        className={`fixed ${
+          isCollapsed ? "left-16" : "left-64"
+        } top-20 transition-all duration-300 z-20`} // Adjusted top slightly to match screenshot better, was top-100
       >
         <button
           onClick={toggleSidebar}
@@ -65,7 +78,9 @@ export default function CustomerSidebar({
         >
           <ChevronLeft
             size={16}
-            className={`transition-transform duration-300 ${isCollapsed ? "rotate-180" : ""}`}
+            className={`transition-transform duration-300 ${
+              isCollapsed ? "rotate-180" : ""
+            }`}
           />
         </button>
       </div>
