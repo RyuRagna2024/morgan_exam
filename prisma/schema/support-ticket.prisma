@@ -8,14 +8,23 @@ model SupportTicket {
   title       String
   name        String   // Name submitted with the form
   email       String   // Email submitted with the form
-  message     String   @db.Text
+  message     String   @db.Text // The *initial* message from the form
 
   attachmentUrl String?
   status        TicketStatus @default(OPEN)
 
-  // Relation field linking back to the User model (defined in user.prisma)
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // --- RELATION TO USER (Creator) ---
+  // Renamed FK field for clarity and added relation name
+  creatorId String
+  creator   User     @relation("CreatedTickets", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  // --- RELATION TO USER (Assignee - Optional, for future use) ---
+  // assigneeId String?
+  // assignee   User?    @relation("AssignedTickets", fields: [assigneeId], references: [id])
+
+  // --- RELATION TO MESSAGES ---
+  // Back-relation for messages belonging to this ticket
+  messages  Message[]
 }
 
 enum TicketStatus {
@@ -25,4 +34,21 @@ enum TicketStatus {
   RESOLVED
 }
 
-// DO NOT define 'model User' here again.
+// --- NEW: MESSAGE MODEL ---
+model Message {
+  id        String   @id @default(cuid())
+  content   String   @db.Text // Content of the reply/message
+  createdAt DateTime @default(now())
+
+  // Optional: Add field for attachments specific to replies later if needed
+  // messageAttachmentUrl String?
+
+  // Relation to the User who SENT this message (customer or admin)
+  // Using a named relation "SentMessages"
+  senderId  String
+  sender    User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade) // Cascade delete if sender is deleted? Or Restrict?
+
+  // Relation to the SupportTicket this message belongs to
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade) // Cascade delete if ticket is deleted
+}

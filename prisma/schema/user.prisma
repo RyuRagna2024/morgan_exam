@@ -1,12 +1,14 @@
+// prisma/user.prisma
+
 model User {
-    id                     String                   @id @default(uuid())
-    username               String                   @unique
+    id                     String   @id @default(uuid())
+    username               String   @unique
     firstName              String
     lastName               String
     displayName            String
-    email                  String                   @unique
+    email                  String   @unique
     passwordHash           String
-    phoneNumber            String                   @default("")
+    phoneNumber            String   @default("")
     streetAddress          String
     suburb                 String?
     townCity               String
@@ -14,12 +16,14 @@ model User {
     country                String
     avatarUrl              String?
     backgroundUrl          String?
-    agreeTerms             Boolean                  @default(false)
-    role                   UserRole                 @default(USER)
-    tier                   Tier                     @default(BRONZE)
+    agreeTerms             Boolean  @default(false)
+    role                   UserRole                 @default(USER) // Assuming UserRole enum defined
+    tier                   Tier                     @default(BRONZE) // Assuming Tier enum defined
+
+    // --- RELATIONS ---
     Session                Session[]
-    Product                Product[] //admin and public
-    Slide                  Slide[] //editor
+    Product                Product[]
+    Slide                  Slide[]
     NewArrival             NewArrival[]
     BestSeller             BestSeller[]
     OnSale                 OnSale[]
@@ -28,8 +32,20 @@ model User {
     Order                  Order[]
     TierAppForm            TierAppForm[]
     Cart                   Cart?
-    Wishlist               Wishlist? // Relation to user's wishlist
-    submittedSupportTickets SupportTicket[]
+    Wishlist               Wishlist?
+
+    // --- RELATION TO SUPPORT TICKET (Creator) ---
+    // Renamed field and added matching relation name "CreatedTickets"
+    createdTickets SupportTicket[] @relation("CreatedTickets")
+
+    // --- RELATION TO SUPPORT TICKET (Assignee - for future use) ---
+    // assignedTickets SupportTicket[] @relation("AssignedTickets")
+
+    // --- RELATION TO MESSAGE (Sender) ---
+    // Added back-relation using matching name "SentMessages"
+    sentMessages   Message[]       @relation("SentMessages")
 
     @@map("users")
 }
+
+// Ensure UserRole and Tier enums are defined (e.g., in enums.prisma or here)

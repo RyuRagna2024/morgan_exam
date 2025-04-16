@@ -1,107 +1,97 @@
-// src/components/customer/SupportForm.tsx (Adjust import paths if necessary)
-
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import { Paperclip } from "lucide-react";
+import { useRouter } from "next/navigation"; // Import useRouter
+import toast from "react-hot-toast"; // Import toast
 import { submitSupportRequest } from "../_actions/submit-support-request";
 import { useSession } from "@/app/(customer)/SessionProvider";
 
-// Interface for the form props (currently empty as action is imported directly)
 interface SupportFormProps {}
 
 export default function SupportForm({}: SupportFormProps) {
   const { user } = useSession();
-  const formRef = useRef<HTMLFormElement>(null); // Ref for the form element
+  const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter(); // Initialize router
 
-  // State for controlled inputs
+  // ... (state variables remain the same: title, name, email, message, attachment, etc.) ...
   const [title, setTitle] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
-  const [attachment, setAttachment] = useState<File | null>(null); // State for the selected file object
-  const [attachmentName, setAttachmentName] = useState<string>(""); // State for displaying the file name
-
-  // State for submission process
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [attachmentName, setAttachmentName] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
     type: "success" | "error" | null;
     message: string;
   }>({ type: null, message: "" });
 
-  // Effect to pre-fill name and email based on user session
+  // ... (useEffect for name/email remains the same) ...
   useEffect(() => {
     if (user) {
       const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim();
       setName(fullName || user.username || "");
       setEmail(user.email || "");
     } else {
-      // Clear fields if user logs out
       setName("");
       setEmail("");
     }
-  }, [user]); // Dependency: runs when user object changes
+  }, [user]);
 
-  // Handle file selection from the hidden input
+  // ... (handleFileChange, handleAttachmentClick remain the same) ...
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Optional: Add client-side validation here (size, type) for immediate feedback
-      // e.g., if (file.size > MAX_SIZE) { alert(...); return; }
       setAttachment(file);
       setAttachmentName(file.name);
     } else {
-      // Reset if no file is selected (e.g., user cancels file picker)
       setAttachment(null);
       setAttachmentName("");
     }
   };
-
-  // Trigger the click event on the hidden file input
   const handleAttachmentClick = () => {
     document.getElementById("support-attachment-input")?.click();
   };
 
-  // Form submission handler - uses FormData and calls the server action
+  // --- UPDATED handleSubmit ---
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); // Prevent default browser form submission
+    event.preventDefault();
     setIsSubmitting(true);
-    setSubmitStatus({ type: null, message: "" }); // Clear previous status
+    setSubmitStatus({ type: null, message: "" }); // Clear previous status message on new submit
 
-    // Check if user is logged in (button should also be disabled)
-    if (!user) {
-      setSubmitStatus({ type: "error", message: "You must be logged in." });
-      setIsSubmitting(false);
-      return;
-    }
-    // Check if form ref is available
-    if (!formRef.current) {
-      setSubmitStatus({ type: "error", message: "Form error occurred." });
+    if (!user || !formRef.current) {
+      setSubmitStatus({
+        type: "error",
+        message: !user ? "You must be logged in." : "Form error.",
+      });
       setIsSubmitting(false);
       return;
     }
 
-    // Create FormData directly from the form element reference.
-    // This automatically includes all inputs with a 'name' attribute.
     const formData = new FormData(formRef.current);
 
-    // --- Server Action Call ---
+    // Display pending toast
+    const loadingToastId = toast.loading("Sending message...");
+
     try {
-      // Call the imported server action function
       const result = await submitSupportRequest(formData);
 
+      toast.dismiss(loadingToastId); // Dismiss loading toast
+
       if (result.success) {
-        setSubmitStatus({ type: "success", message: result.message });
-        // Reset form fields on successful submission
-        setTitle("");
-        setMessage("");
-        setAttachment(null);
-        setAttachmentName("");
-        // Reset the form element itself to clear inputs including the file input
+        // Show success toast
+        toast.success("Message Sent Successfully!", { duration: 2000 }); // Show for 2 seconds
+
+        // Reset form using ref after successful submission
         if (formRef.current) {
           formRef.current.reset();
-          // Re-populate name/email after reset as they are controlled by useEffect
-          // which will run again due to user state not changing
+          // Clear state associated with form that reset doesn't handle (file)
+          setAttachment(null);
+          setAttachmentName("");
+          setTitle(""); // Also clear controlled state
+          setMessage("");
+          // Re-populate name/email if needed (useEffect might handle this)
           if (user) {
             const fullName =
               `${user.firstName || ""} ${user.lastName || ""}`.trim();
@@ -109,31 +99,45 @@ export default function SupportForm({}: SupportFormProps) {
             setEmail(user.email || "");
           }
         }
+
+        // Redirect after a delay (matching toast duration)
+        setTimeout(() => {
+          router.push("/customer/mymessages"); // Redirect to the messages list
+          // Optionally refresh data if needed, though push usually triggers reload
+          // router.refresh(); // Use if you want to force a data refresh
+        }, 2000); // 2 second delay
       } else {
-        // Display error message from the server action
+        // Show error toast from server action message
+        toast.error(result.message || "Failed to send message.");
+        // Also update the local error state if you still want the inline message
         setSubmitStatus({ type: "error", message: result.message });
       }
     } catch (error) {
-      // Catch unexpected errors during the action call itself
+      toast.dismiss(loadingToastId); // Dismiss loading toast on error too
       console.error("Error calling submitSupportRequest action:", error);
-      setSubmitStatus({
-        type: "error",
-        message: "An unexpected error occurred submitting the form.",
-      });
+      const errorMsg = "An unexpected error occurred submitting the form.";
+      toast.error(errorMsg);
+      setSubmitStatus({ type: "error", message: errorMsg });
     } finally {
-      // Ensure submitting state is turned off regardless of outcome
-      setIsSubmitting(false);
+      // Ensure submitting state is always turned off
+      // We delay this slightly if redirecting on success
+      if (submitStatus.type !== "success") {
+        setIsSubmitting(false);
+      } else {
+        // Keep submitting appearance until redirect happens
+        // setIsSubmitting will effectively be false on next render anyway
+      }
     }
   }; // End of handleSubmit
 
-  // --- Render JSX ---
+  // --- JSX Rendering (mostly the same, ensure error message display uses submitStatus) ---
   return (
     <div className="max-w-xl mx-auto p-6 md:p-8 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-semibold mb-6 text-gray-800 text-center">
         Contact Support
       </h2>
-      {/* Add ref to the form */}
       <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
+        {/* ... Input fields for title, name, email, message ... */}
         {/* Title Input */}
         <div>
           <label
@@ -145,7 +149,7 @@ export default function SupportForm({}: SupportFormProps) {
           <input
             type="text"
             id="title"
-            name="title" // Name attribute for FormData
+            name="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
@@ -154,7 +158,6 @@ export default function SupportForm({}: SupportFormProps) {
             disabled={!user || isSubmitting}
           />
         </div>
-
         {/* Name Input */}
         <div>
           <label
@@ -166,7 +169,7 @@ export default function SupportForm({}: SupportFormProps) {
           <input
             type="text"
             id="name"
-            name="name" // Name attribute for FormData
+            name="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -175,7 +178,6 @@ export default function SupportForm({}: SupportFormProps) {
             disabled={!user || isSubmitting}
           />
         </div>
-
         {/* Email Input */}
         <div>
           <label
@@ -187,7 +189,7 @@ export default function SupportForm({}: SupportFormProps) {
           <input
             type="email"
             id="email"
-            name="email" // Name attribute for FormData
+            name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -196,7 +198,6 @@ export default function SupportForm({}: SupportFormProps) {
             disabled={!user || isSubmitting}
           />
         </div>
-
         {/* Message Textarea */}
         <div>
           <label
@@ -207,7 +208,7 @@ export default function SupportForm({}: SupportFormProps) {
           </label>
           <textarea
             id="message"
-            name="message" // Name attribute for FormData
+            name="message"
             rows={5}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -223,20 +224,18 @@ export default function SupportForm({}: SupportFormProps) {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Attachment (Optional - Max 5MB Image)
           </label>
-          {/* Hidden File Input with aria-label */}
           <input
             type="file"
             id="support-attachment-input"
-            name="attachment" // Name attribute for FormData
-            className="hidden" // Visually hide the default input
+            name="attachment"
+            className="hidden"
             onChange={handleFileChange}
-            accept="image/jpeg,image/png,image/webp,image/gif" // Suggest file types
+            accept="image/jpeg,image/png,image/webp,image/gif"
             disabled={!user || isSubmitting}
-            aria-label="Attach an optional image file for the support request (Max 5MB)" // Accessibility label
+            aria-label="Attach an optional image file for the support request (Max 5MB)"
           />
-          {/* Button to trigger the hidden file input */}
           <button
-            type="button" // Prevent form submission on click
+            type="button"
             onClick={handleAttachmentClick}
             disabled={!user || isSubmitting}
             className="mt-1 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -244,14 +243,12 @@ export default function SupportForm({}: SupportFormProps) {
             <Paperclip className="mr-2 -ml-0.5 h-4 w-4" aria-hidden="true" />
             {attachmentName ? "Change File" : "Attach File"}
           </button>
-          {/* Display selected file name */}
           {attachmentName && (
             <span className="ml-3 text-sm text-gray-600 truncate max-w-xs inline-block align-middle">
               {attachmentName}
             </span>
           )}
         </div>
-        {/* --- End Attachment Section --- */}
 
         {/* Submit Button */}
         <div>
@@ -264,30 +261,27 @@ export default function SupportForm({}: SupportFormProps) {
           </button>
         </div>
 
-        {/* Status Message Area */}
-        {submitStatus.type && (
+        {/* Inline Status Message Area - Still useful for persistent errors */}
+        {submitStatus.type === "error" && ( // Only show inline message for errors now
           <div
-            className={`mt-4 p-3 rounded-md text-sm ${
-              submitStatus.type === "success"
-                ? "bg-green-100 text-green-800"
-                : "bg-red-100 text-red-800"
-            }`}
-            role="alert" // Indicate purpose for assistive technologies
+            className={`mt-4 p-3 rounded-md text-sm bg-red-100 text-red-800`}
+            role="alert"
           >
             {submitStatus.message}
           </div>
         )}
 
-        {/* Login Prompt (shown if user is not logged in) */}
+        {/* Login Prompt */}
         {!user && (
           <div
             className="mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-800 text-center"
             role="alert"
           >
-            Please log in to submit a support request.
+            {" "}
+            Please log in to submit a support request.{" "}
           </div>
         )}
       </form>
-    </div> // End of main container div
-  ); // End of return statement
-} // End of component function SupportForm
+    </div>
+  );
+} // End component

@@ -13,25 +13,26 @@
     "jsx": "preserve",
     "incremental": true,
     "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".", // <-- ADD THIS LINE
+    "paths": {
+      "@/*": ["./*"],
+      "@/prisma/*": ["./prisma/*"] // This existing path is also fine
+    },
+    "target": "ES2017", // Moved plugins down for better readability
     "plugins": [
       {
         "name": "next"
       }
-    ],
-    "paths": {
-      "@/*": ["./*"],
-      "@/prisma/*": ["./prisma/*"]
-    },
-    "target": "ES2017"
+    ]
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "scripts/seed.js",
-    "prisma/**/*.ts",
-    "app/(public)/productId/cart/_cart-actions"
+    "scripts/seed.js", // Be mindful if this JS file relies on TS paths
+    "prisma/**/*.ts", // Be mindful if these TS files rely on paths
+    "app/(public)/productId/cart/_cart-actions" // Ensure this path is correct relative to root
   ],
   "exclude": ["node_modules"]
 }

@@ -1,5 +1,4 @@
-// src/components/customer/(sidebar)/NavigationLinks.tsx
-// (Assuming this is the correct path based on your other components)
+// src/components/customer/(sidebar)/NavigationLinks.tsx (Adjust path if needed)
 
 import Link from "next/link";
 import {
@@ -9,7 +8,8 @@ import {
   Calendar,
   CreditCard,
   Settings,
-  HelpCircle, // Ensure HelpCircle is imported
+  HelpCircle,
+  MessageSquare, // Import the icon for "My Messages"
 } from "lucide-react";
 
 // Update the interface to include currentPath
@@ -31,7 +31,6 @@ export default function NavigationLinks({
   };
 
   // Navigation items array for cleaner code and easier maintenance
-  // --- REORDERED ITEMS BELOW ---
   const navItems = [
     {
       href: "/",
@@ -47,19 +46,29 @@ export default function NavigationLinks({
       icon: CreditCard,
       label: "Payment Methods",
     },
-    // Moved the Support item here
+    // Existing Support link
     { href: "/customer/support", icon: HelpCircle, label: "Support" },
-    // Settings item now comes after Support
+    // --- Add the new "My Messages" link here ---
+    { href: "/customer/mymessages", icon: MessageSquare, label: "My Messages" },
+    // --- End of new link ---
+    // Settings item now comes after "My Messages"
     { href: "/customer/settings", icon: Settings, label: "Settings" },
   ];
-  // --- END OF REORDERED ITEMS ---
+  // --- End of Modified navItems array ---
 
   return (
     <nav className="py-4">
       <ul>
         {navItems.map((item) => {
+          // Ensure item.icon exists before trying to render it
+          if (!item.icon) {
+            console.warn(
+              `Navigation item with label "${item.label}" is missing an icon.`,
+            );
+            return null; // Skip rendering this item if icon is missing
+          }
           const active = isActive(item.href);
-          const Icon = item.icon;
+          const Icon = item.icon; // Assign here after the check
           const tooltipLabel = item.tooltipLabel || item.label;
 
           return (
@@ -74,7 +83,7 @@ export default function NavigationLinks({
                     : "border-l-4 border-transparent" // Add transparent border for consistent alignment
                 }`}
               >
-                <Icon
+                <Icon // Now Icon is guaranteed to be a component
                   className={`${isCollapsed ? "" : "mr-3"} flex-shrink-0`} // Added flex-shrink-0
                   size={20}
                 />

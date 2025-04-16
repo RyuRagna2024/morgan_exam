@@ -1,114 +1,125 @@
-// src/app/(customer)/_actions/submit-support-request.ts
-
 "use server";
 
-import { validateRequest } from "@/auth"; // Adjust path to your auth
+import { validateRequest } from "@/auth"; // Adjust path if needed
 import { put } from "@vercel/blob";
-import prisma from "@/lib/prisma"; // Adjust path to your prisma client
+import prisma from "@/lib/prisma"; // Adjust path if needed
 import { supportRequestSchema } from "../validations";
 
-// Define the response type for the client
 export type SubmitSupportResponse = {
   success: boolean;
-  message: string; // User-friendly message
+  message: string;
 };
 
 export async function submitSupportRequest(
   formData: FormData,
 ): Promise<SubmitSupportResponse> {
   try {
-    // 1. Authenticate the user
+    // 1. Authenticate user
     const { user } = await validateRequest();
     if (!user) {
       return { success: false, message: "Unauthorized: Please log in." };
     }
+    // Add console log to verify user ID
+    console.log("Authenticated User ID for ticket creation:", user.id);
 
-    // 2. Extract data from FormData
+    // 2. Extract data
     const rawFormData = {
       title: formData.get("title"),
       name: formData.get("name"),
       email: formData.get("email"),
       message: formData.get("message"),
-      attachment: formData.get("attachment"), // Get the file
+      attachment: formData.get("attachment"),
     };
-
-    // Handle empty file input specifically for Zod validation
-    // If the file input is empty, 'attachment' might be a File object with size 0
-    // Zod's optional() handles null/undefined, but we need to coerce empty File to undefined
     const attachmentFile =
       rawFormData.attachment instanceof File && rawFormData.attachment.size > 0
         ? rawFormData.attachment
         : undefined;
 
-    // 3. Validate the data using Zod schema
+    // 3. Validate data
     const validationResult = supportRequestSchema.safeParse({
       ...rawFormData,
-      attachment: attachmentFile, // Pass the potentially undefined file
+      attachment: attachmentFile,
     });
 
     if (!validationResult.success) {
-      // Combine specific Zod error messages for better feedback
-      const errorMessages = validationResult.error.errors
-        .map((e) => `${e.path.join(".")}: ${e.message}`)
-        .join("\n");
-      console.error("Support Form Validation Error:", errorMessages);
+      console.error(
+        "Support Form Validation Error:",
+        validationResult.error.flatten(),
+      ); // Log flattened errors
       return {
         success: false,
-        // Provide a generic message or the first error
         message: `Validation failed: ${validationResult.error.errors[0]?.message || "Please check your input."}`,
       };
     }
 
-    // Use the validated data from now on
     const validatedData = validationResult.data;
     let uploadedAttachmentUrl: string | null = null;
 
-    // 4. Handle File Upload (if attachment exists)
+    // 4. Handle File Upload
     if (validatedData.attachment) {
+      // (Keep existing file upload logic)
       try {
         const file = validatedData.attachment;
-        const fileExt = file.name.split(".").pop() || "bin";
-        // Create a unique path, e.g., support-attachments/user_<userId>/<timestamp>.<ext>
         const filePath = `support-attachments/user_${user.id}/${Date.now()}_${file.name}`;
-
         const blob = await put(filePath, file, {
-          access: "public", // Or 'private' if access control is needed later
+          access: "public",
           addRandomSuffix: false,
         });
         uploadedAttachmentUrl = blob.url;
+        console.log("Attachment uploaded:", uploadedAttachmentUrl);
       } catch (uploadError) {
         console.error("Attachment Upload Error:", uploadError);
-        return {
-          success: false,
-          message: "Failed to upload attachment. Please try again.",
-        };
+        return { success: false, message: "Failed to upload attachment." };
       }
     }
 
-    // 5. Save the support ticket to the database
+    // 5. Save the support ticket to the database (CORRECTED DATA OBJECT)
     try {
-      await prisma.supportTicket.create({
+      console.log("Attempting to create ticket with data:", {
+        // Log data before create
+        title: validatedData.title,
+        name: validatedData.name,
+        email: validatedData.email,
+        message: validatedData.message,
+        attachmentUrl: uploadedAttachmentUrl,
+        status: "OPEN",
+        creatorId: user.id, // For logging only, connect is used below
+      });
+
+      const newTicket = await prisma.supportTicket.create({
         data: {
+          // Fields from the form/validation
           title: validatedData.title,
-          name: validatedData.name, // Using validated name
-          email: validatedData.email, // Using validated email
+          name: validatedData.name,
+          email: validatedData.email,
           message: validatedData.message,
-          attachmentUrl: uploadedAttachmentUrl, // This will be null if no file was uploaded
-          status: "OPEN", // Default status
-          userId: user.id, // Link to the authenticated user
+          attachmentUrl: uploadedAttachmentUrl,
+          status: "OPEN",
+          // --- THIS IS THE FIX ---
+          // Connect the 'creator' relation using the user's ID
+          creator: {
+            connect: {
+              id: user.id,
+            },
+          },
+          // --- REMOVE the old 'userId' field ---
+          // userId: user.id, // <-- REMOVE THIS LINE
         },
       });
+
+      console.log("Successfully created ticket:", newTicket.id); // Log success
 
       // 6. Return Success
       return {
         success: true,
-        message: "Support request submitted successfully!",
+        message: "Support request submitted successfully!", // Default success message
       };
     } catch (dbError) {
+      // Log the specific database error
       console.error("Database Error Creating Support Ticket:", dbError);
       return {
         success: false,
-        message: "Failed to save support request. Please try again later.",
+        message: "Failed to save support request. Please try again later.", // Generic message to client
       };
     }
   } catch (error) {
