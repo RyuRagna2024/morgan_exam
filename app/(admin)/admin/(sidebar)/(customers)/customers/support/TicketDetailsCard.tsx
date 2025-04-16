@@ -4,8 +4,8 @@ import React from "react";
 import { FullTicketDetails } from "@/app/(admin)/admin/(sidebar)/(customers)/customers/support/[ticketId]/page"; // Adjust path
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Adjust path
 import { format } from "date-fns";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 // *** CORRECTED IMPORT ***
-import { StatusBadge } from "./TicketTable"; // Import from the TicketTable file where it's now exported
 
 interface TicketDetailsCardProps {
   ticket: FullTicketDetails;

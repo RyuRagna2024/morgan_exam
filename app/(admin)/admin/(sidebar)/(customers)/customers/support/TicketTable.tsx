@@ -4,8 +4,7 @@
 
 import React, { useState, useMemo, useTransition } from "react";
 import Link from "next/link";
-// Corrected import path including route groups
-import { TicketWithDetails } from "@/app/(admin)/admin/(sidebar)/(customers)/customers/support/page";
+// Ensure this import path is correct, including route groups
 import { TicketStatus } from "@prisma/client";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import {
@@ -14,7 +13,7 @@ import {
   CheckCircle,
   LoaderCircle,
   XCircle,
-  Trash2, // Keep Trash2 if you might add delete later
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button"; // Adjust path if needed
 import {
@@ -26,107 +25,90 @@ import {
 } from "@/components/ui/dropdown-menu"; // Adjust path if needed
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-// Corrected import path including route groups and _actions
-import { updateTicketStatus } from "@/app/(admin)/admin/(sidebar)/(customers)/customers/support/update-ticket-status";
-
-// --- Helper: Status Badge Component ---
-export const StatusBadge = ({
-  status,
-}: {
-  status: TicketStatus;
-}): JSX.Element => {
-  const baseClasses =
-    "px-2 py-0.5 rounded-full text-xs font-medium inline-block capitalize";
-  let colorClasses = "";
-  switch (status) {
-    case TicketStatus.OPEN:
-      colorClasses = "bg-green-100 text-green-700";
-      break;
-    case TicketStatus.IN_PROGRESS:
-      colorClasses = "bg-yellow-100 text-yellow-700";
-      break;
-    case TicketStatus.CLOSED:
-    case TicketStatus.RESOLVED:
-      colorClasses = "bg-gray-100 text-gray-600";
-      break;
-    default:
-      colorClasses = "bg-gray-100 text-gray-600";
-      break;
-  }
-  const formattedStatus = status.replace("_", " ").toLowerCase();
-  return (
-    <span className={`${baseClasses} ${colorClasses}`}>{formattedStatus}</span>
-  );
-};
+// Ensure this import path is correct (relative or alias)
+// Ensure this import path is correct
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { TicketWithDetails } from "./page";
+import { updateTicketStatus } from "./update-ticket-status";
 
 // --- Main Table Component ---
 interface TicketTableProps {
-  tickets: TicketWithDetails[];
+  tickets: TicketWithDetails[]; // Using the imported type
 }
 
+// Explicitly type the component with React.FC
 export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
-  // --- State ---
+  // --- Hooks ---
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [updatingTicketId, setUpdatingTicketId] = useState<string | null>(null);
 
-  // --- Memoized Logic ---
+  // --- Memoized Logic with Explicit Return Types ---
   const filteredTickets = useMemo((): TicketWithDetails[] => {
     const lowerSearchTerm = searchTerm.toLowerCase();
-    if (!Array.isArray(tickets)) return [];
-    if (!lowerSearchTerm) return tickets;
-    return tickets.filter(
+    // Safety check: Ensure 'tickets' is actually an array before filtering
+    if (!Array.isArray(tickets)) {
+      console.warn("TicketTable: 'tickets' prop is not an array.");
+      return []; // Must return the declared type (empty array is valid)
+    }
+    if (!lowerSearchTerm) {
+      return tickets; // Return the original array if no search term
+    }
+    // Filter logic with optional chaining for safety
+    const results = tickets.filter(
       (ticket) =>
-        (ticket.title?.toLowerCase() ?? "").includes(lowerSearchTerm) ||
-        (ticket.creator?.username?.toLowerCase() ?? "").includes(
+        (ticket?.title?.toLowerCase() ?? "").includes(lowerSearchTerm) ||
+        (ticket?.creator?.username?.toLowerCase() ?? "").includes(
           lowerSearchTerm,
         ) ||
-        (ticket.creator?.email?.toLowerCase() ?? "").includes(
+        (ticket?.creator?.email?.toLowerCase() ?? "").includes(
           lowerSearchTerm,
         ) ||
-        (ticket.id?.toLowerCase() ?? "").includes(lowerSearchTerm) ||
-        (ticket.status?.toLowerCase().replace("_", " ") ?? "").includes(
+        (ticket?.id?.toLowerCase() ?? "").includes(lowerSearchTerm) ||
+        (ticket?.status?.toLowerCase().replace("_", " ") ?? "").includes(
           lowerSearchTerm,
         ),
     );
-  }, [tickets, searchTerm]);
+    return results; // Return the filtered array
+  }, [tickets, searchTerm]); // Dependencies
 
   const paginatedTickets = useMemo((): TicketWithDetails[] => {
+    // Safety check: Ensure 'filteredTickets' is an array
+    if (!Array.isArray(filteredTickets)) {
+      console.warn("TicketTable: 'filteredTickets' is not an array.");
+      return []; // Must return the declared type
+    }
     const startIndex = (currentPage - 1) * entriesPerPage;
     const endIndex = startIndex + entriesPerPage;
-    if (!Array.isArray(filteredTickets)) return [];
-    return filteredTickets.slice(startIndex, endIndex);
-  }, [filteredTickets, currentPage, entriesPerPage]);
+    const results = filteredTickets.slice(startIndex, endIndex);
+    return results; // Return the sliced array
+  }, [filteredTickets, currentPage, entriesPerPage]); // Dependencies
 
-  // Calculate total pages and entry range (ensure calculated before handlers use totalPages)
-  const totalPages = Math.ceil(filteredTickets.length / entriesPerPage);
+  // --- Calculations (Derived State) ---
+  const totalFilteredTickets = Array.isArray(filteredTickets)
+    ? filteredTickets.length
+    : 0;
+  const totalPages = Math.ceil(totalFilteredTickets / entriesPerPage);
   const startEntry =
-    filteredTickets.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0;
-  const endEntry = Math.min(
-    currentPage * entriesPerPage,
-    filteredTickets.length,
-  );
+    totalFilteredTickets > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0;
+  const endEntry = Math.min(currentPage * entriesPerPage, totalFilteredTickets);
 
-  // --- Event Handlers (Lines ~76-81 area) ---
+  // --- Event Handlers ---
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
     setCurrentPage(1);
   };
-
   const handleEntriesChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setEntriesPerPage(Number(event.target.value));
     setCurrentPage(1);
   };
-
   const handlePreviousPage = () => {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
-
   const handleNextPage = () => {
-    // Ensure totalPages is calculated correctly before this is called
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
 
@@ -144,15 +126,16 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
     });
   };
 
-  // Placeholder for delete if you add it back later
-  // const handleDelete = (ticketId: string) => { /* ... */ };
+  // Row click handler
+  const handleRowClick = (ticketId: string) => {
+    router.push(`/admin/customers/support/${ticketId}`);
+  };
 
   // --- JSX Rendering ---
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
-      {/* Header Section */}
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between p-4 border-b border-gray-200 gap-4">
-        {/* Entries Dropdown */}
         <div className="flex items-center space-x-2">
           <label
             htmlFor="entries"
@@ -174,7 +157,6 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
           </select>
           <span className="text-sm text-gray-600">entries</span>
         </div>
-        {/* Search Input */}
         <div className="flex items-center space-x-2">
           <label htmlFor="search" className="text-sm text-gray-600">
             Search:
@@ -190,13 +172,12 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
           />
         </div>
       </div>{" "}
-      {/* End Header Div */}
+      {/* End Header */}
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {/* Headers */}
               <th
                 scope="col"
                 className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -248,16 +229,17 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {/* Rows */}
+            {/* Check if array before mapping */}
             {Array.isArray(paginatedTickets) && paginatedTickets.length > 0 ? (
-              // Explicitly type 'ticket' here
+              // Add explicit type to map parameter
               paginatedTickets.map((ticket: TicketWithDetails) => {
                 const isCurrentTicketUpdating =
                   updatingTicketId === ticket.id && isPending;
                 return (
                   <tr
                     key={ticket.id}
-                    className={`hover:bg-gray-50 transition-colors duration-150 ${isCurrentTicketUpdating ? "opacity-70" : ""}`}
+                    onClick={() => handleRowClick(ticket.id)} // Row click handler
+                    className={`hover:bg-gray-100 cursor-pointer transition-colors duration-150 ${isCurrentTicketUpdating ? "opacity-70" : ""}`}
                   >
                     {/* Cells */}
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -293,87 +275,91 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
                           )
                         : "No Replies"}
                     </td>
-                    {/* Actions Cell */}
+                    {/* Actions Cell with stopPropagation */}
                     <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          asChild
-                          disabled={isCurrentTicketUpdating || isPending}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Actions for ticket ${ticket.id.substring(0, 8)}`}
+                      <div onClick={(e) => e.stopPropagation()}>
+                        {" "}
+                        {/* Prevent row click */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            asChild
+                            disabled={isCurrentTicketUpdating || isPending}
                           >
-                            {isCurrentTicketUpdating ? (
-                              <LoaderCircle className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <MoreHorizontal className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link
-                              href={`/admin/customers/support/${ticket.id}`}
-                              className="flex items-center cursor-pointer"
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Actions for ticket ${ticket.id.substring(0, 8)}`}
                             >
-                              <MessageSquareReply className="mr-2 h-4 w-4" />
-                              <span>Reply</span>
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleSetStatus(ticket.id, TicketStatus.OPEN)
-                            }
-                            disabled={
-                              ticket.status === TicketStatus.OPEN || isPending
-                            }
-                            className="flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                            <span>Set Status to Open</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleSetStatus(
-                                ticket.id,
-                                TicketStatus.IN_PROGRESS,
-                              )
-                            }
-                            disabled={
-                              ticket.status === TicketStatus.IN_PROGRESS ||
-                              isPending
-                            }
-                            className="flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <LoaderCircle className="mr-2 h-4 w-4 text-yellow-600" />
-                            <span>Set Status to In Progress</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleSetStatus(ticket.id, TicketStatus.CLOSED)
-                            }
-                            disabled={
-                              ticket.status === TicketStatus.CLOSED ||
-                              ticket.status === TicketStatus.RESOLVED ||
-                              isPending
-                            }
-                            className="flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <XCircle className="mr-2 h-4 w-4 text-gray-600" />
-                            <span>Set Status to Closed</span>
-                          </DropdownMenuItem>
-                          {/* Removed Delete item */}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                              {isCurrentTicketUpdating ? (
+                                <LoaderCircle className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <MoreHorizontal className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/admin/customers/support/${ticket.id}`}
+                                className="flex items-center cursor-pointer"
+                              >
+                                <MessageSquareReply className="mr-2 h-4 w-4" />
+                                <span>Reply</span>
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleSetStatus(ticket.id, TicketStatus.OPEN)
+                              }
+                              disabled={
+                                ticket.status === TicketStatus.OPEN || isPending
+                              }
+                              className="flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                              <span>Set Status to Open</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleSetStatus(
+                                  ticket.id,
+                                  TicketStatus.IN_PROGRESS,
+                                )
+                              }
+                              disabled={
+                                ticket.status === TicketStatus.IN_PROGRESS ||
+                                isPending
+                              }
+                              className="flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <LoaderCircle className="mr-2 h-4 w-4 text-yellow-600" />
+                              <span>Set Status to In Progress</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleSetStatus(ticket.id, TicketStatus.CLOSED)
+                              }
+                              disabled={
+                                ticket.status === TicketStatus.CLOSED ||
+                                ticket.status === TicketStatus.RESOLVED ||
+                                isPending
+                              }
+                              className="flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <XCircle className="mr-2 h-4 w-4 text-gray-600" />
+                              <span>Set Status to Closed</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>{" "}
+                      {/* End stopPropagation wrapper */}
                     </td>
-                  </tr>
-                ); // End return map
-              }) // End map
+                  </tr> // Ensure tr is closed
+                ); // Ensure map return parenthesis is closed
+              }) // Ensure map closing parenthesis is closed
             ) : (
-              // No tickets row
+              // Ternary else case
               <tr>
                 <td
                   colSpan={8}
@@ -383,18 +369,19 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
                   No tickets found{searchTerm ? " matching your search" : ""}.
                 </td>
               </tr>
-            )}
-          </tbody>
-        </table>
+            )}{" "}
+            {/* Ensure ternary closing brace is closed */}
+          </tbody>{" "}
+          {/* Ensure tbody is closed */}
+        </table>{" "}
+        {/* Ensure table is closed */}
       </div>{" "}
-      {/* End Table container */}
-      {/* Footer Section */}
+      {/* End overflow div */}
+      {/* Footer */}
       <div className="flex flex-wrap items-center justify-between p-4 border-t border-gray-200 gap-4">
-        {/* Showing info */}
         <div className="text-sm text-gray-600">
-          Showing {startEntry} to {endEntry} of {filteredTickets.length} entries
+          Showing {startEntry} to {endEntry} of {totalFilteredTickets} entries
         </div>
-        {/* Pagination */}
         <div className="flex items-center space-x-1">
           <button
             onClick={handlePreviousPage}
@@ -415,9 +402,9 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
           </button>
         </div>
       </div>{" "}
-      {/* End Footer */}
-    </div> // End Main Container div
-  ); // End Component Return
-}; // End Component Definition
+      {/* End footer div */}
+    </div> // End main component div
+  ); // End component return
+}; // End component definition
 
 export default TicketTable;
