@@ -4,12 +4,12 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-// Ensure this path points correctly to your mymessages page
-import { TicketWithDetails } from "@/app/(customer)/customer/mymessages/page"; // Adjust if needed
+// Ensure this import path is correct and page.tsx exports the type
+import { TicketWithDetails } from "@/app/(customer)/customer/mymessages/page";
 import { TicketStatus } from "@prisma/client";
 import { format, formatDistanceToNowStrict } from "date-fns";
-import { Eye } from "lucide-react"; // Import Eye icon
-import { Button } from "@/components/ui/button"; // Adjust path if needed
+import { Eye } from "lucide-react";
+import { Button } from "@/components/ui/button"; // Adjust path
 import { StatusBadge } from "@/components/shared/StatusBadge"; // Adjust path
 
 interface CustomerTicketListProps {
@@ -19,29 +19,65 @@ interface CustomerTicketListProps {
 export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
   tickets,
 }) => {
-  // ... (state, useMemo, handlers remain the same) ...
+  // --- State ---
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
+
+  // --- Memoized Logic ---
   const filteredTickets = useMemo((): TicketWithDetails[] => {
-    /* ... */
-  }, [tickets, searchTerm]);
+    // Explicit Return Type
+    // Safety check for input array
+    if (!Array.isArray(tickets)) {
+      console.warn("CustomerTicketList: 'tickets' prop is not an array.");
+      return []; // MUST return an array matching the declared return type
+    }
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    if (!lowerSearchTerm) {
+      return tickets; // Return original array if no search term
+    }
+    // Perform filtering
+    const results = tickets.filter(
+      (ticket) =>
+        (ticket?.title?.toLowerCase() ?? "").includes(lowerSearchTerm) ||
+        (ticket?.id?.toLowerCase() ?? "").includes(lowerSearchTerm) ||
+        (ticket?.status?.toLowerCase().replace("_", " ") ?? "").includes(
+          lowerSearchTerm,
+        ),
+    );
+    return results; // Return the filtered array
+  }, [tickets, searchTerm]); // Dependencies are correct
+
   const paginatedTickets = useMemo((): TicketWithDetails[] => {
-    /* ... */
-  }, [filteredTickets, currentPage, entriesPerPage]);
-  const totalPages = Math.ceil(filteredTickets.length / entriesPerPage);
+    // Explicit Return Type
+    // Safety check for input array
+    if (!Array.isArray(filteredTickets)) {
+      console.warn("CustomerTicketList: 'filteredTickets' is not an array.");
+      return []; // MUST return an array matching the declared return type
+    }
+    const startIndex = (currentPage - 1) * entriesPerPage;
+    const endIndex = startIndex + entriesPerPage;
+    const results = filteredTickets.slice(startIndex, endIndex);
+    return results; // Return the sliced array
+  }, [filteredTickets, currentPage, entriesPerPage]); // Dependencies are correct
+
+  // --- Calculations ---
+  // Use safety check for length property
+  const totalFilteredTickets = Array.isArray(filteredTickets)
+    ? filteredTickets.length
+    : 0;
+  const totalPages = Math.ceil(totalFilteredTickets / entriesPerPage);
   const startEntry =
-    filteredTickets.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0;
-  const endEntry = Math.min(
-    currentPage * entriesPerPage,
-    filteredTickets.length,
-  );
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
+    totalFilteredTickets > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0;
+  const endEntry = Math.min(currentPage * entriesPerPage, totalFilteredTickets);
+
+  // --- Event Handlers ---
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value);
     setCurrentPage(1);
   };
-  const handleEntriesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setEntriesPerPage(Number(e.target.value));
+  const handleEntriesChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setEntriesPerPage(Number(event.target.value));
     setCurrentPage(1);
   };
   const handlePreviousPage = () => {
@@ -51,9 +87,10 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
 
+  // --- JSX Rendering ---
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
-      {/* ... Header ... */}
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between p-4 border-b border-gray-200 gap-4">
         <div className="flex items-center space-x-2">
           <label
@@ -163,10 +200,8 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
                           addSuffix: true,
                         })}
                   </td>
-                  {/* === ACTION CELL UPDATED === */}
                   <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
                     <Link href={`/customer/mymessages/${ticket.id}`} passHref>
-                      {/* Use Button component for styling */}
                       <Button
                         variant="outline"
                         size="sm"
@@ -178,7 +213,6 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
                       </Button>
                     </Link>
                   </td>
-                  {/* === END ACTION CELL === */}
                 </tr>
               ))
             ) : (
@@ -194,10 +228,10 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
           </tbody>
         </table>
       </div>
-      {/* ... Footer ... */}
+      {/* Footer */}
       <div className="flex flex-wrap items-center justify-between p-4 border-t border-gray-200 gap-4">
         <div className="text-sm text-gray-600">
-          Showing {startEntry} to {endEntry} of {filteredTickets.length} entries
+          Showing {startEntry} to {endEntry} of {totalFilteredTickets} entries
         </div>
         <div className="flex items-center space-x-1">
           <button
