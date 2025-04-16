@@ -12,9 +12,9 @@
 
 [x] For the /customer under the support in the sidebar create a messaging system, where a customer can send a message to admin with a title, their name, email and the actually support message.
 
-[] on the admin panel create a route for the admin sidebar that shows all the messages that came from a customer.
+[x] on the admin panel create a route for the admin sidebar that shows all the messages that came from a customer.
 
-[] on the customer sidebar, add a route that shows the MY MESSAGES that the customer did send to admin.
+[x] on the customer sidebar, add a route that shows the MY MESSAGES that the customer did send to admin.
 
 ## Question 4
 

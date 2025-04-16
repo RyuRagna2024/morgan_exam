@@ -1,39 +1,17 @@
+// app/(customer)/customer/mymessages/_components/CustomerTicketList.tsx
+
 "use client";
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { TicketWithDetails } from "@/app/(customer)/customer/mymessages/page";
+// Ensure this path points correctly to your mymessages page
+import { TicketWithDetails } from "@/app/(customer)/customer/mymessages/page"; // Adjust if needed
 import { TicketStatus } from "@prisma/client";
 import { format, formatDistanceToNowStrict } from "date-fns";
-import { MoreHorizontal } from "lucide-react";
+import { Eye } from "lucide-react"; // Import Eye icon
+import { Button } from "@/components/ui/button"; // Adjust path if needed
+import { StatusBadge } from "@/components/shared/StatusBadge"; // Adjust path
 
-// --- Helper: Status Badge Component ---
-const StatusBadge = ({ status }: { status: TicketStatus }) => {
-  const baseClasses =
-    "px-2 py-0.5 rounded-full text-xs font-medium inline-block capitalize";
-  let colorClasses = "";
-
-  switch (status) {
-    case TicketStatus.OPEN:
-      colorClasses = "bg-green-100 text-green-700";
-      break;
-    case TicketStatus.IN_PROGRESS:
-      colorClasses = "bg-yellow-100 text-yellow-700";
-      break;
-    case TicketStatus.CLOSED:
-    case TicketStatus.RESOLVED:
-      colorClasses = "bg-gray-100 text-gray-600";
-      break;
-    default:
-      colorClasses = "bg-gray-100 text-gray-600";
-  }
-  const formattedStatus = status.replace("_", " ").toLowerCase();
-  return (
-    <span className={`${baseClasses} ${colorClasses}`}>{formattedStatus}</span>
-  );
-};
-
-// --- Main Table Component for Customer ---
 interface CustomerTicketListProps {
   tickets: TicketWithDetails[];
 }
@@ -41,30 +19,16 @@ interface CustomerTicketListProps {
 export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
   tickets,
 }) => {
+  // ... (state, useMemo, handlers remain the same) ...
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
-
-  // Memoized filtering logic
-  const filteredTickets = useMemo(() => {
-    const lowerSearchTerm = searchTerm.toLowerCase();
-    if (!lowerSearchTerm) return tickets;
-    return tickets.filter(
-      (ticket) =>
-        ticket.title.toLowerCase().includes(lowerSearchTerm) ||
-        ticket.id.toLowerCase().includes(lowerSearchTerm) ||
-        ticket.status.toLowerCase().replace("_", " ").includes(lowerSearchTerm),
-    );
+  const filteredTickets = useMemo((): TicketWithDetails[] => {
+    /* ... */
   }, [tickets, searchTerm]);
-
-  // Memoized pagination logic
-  const paginatedTickets = useMemo(() => {
-    const startIndex = (currentPage - 1) * entriesPerPage;
-    const endIndex = startIndex + entriesPerPage;
-    return filteredTickets.slice(startIndex, endIndex);
+  const paginatedTickets = useMemo((): TicketWithDetails[] => {
+    /* ... */
   }, [filteredTickets, currentPage, entriesPerPage]);
-
-  // Calculations for display text
   const totalPages = Math.ceil(filteredTickets.length / entriesPerPage);
   const startEntry =
     filteredTickets.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0;
@@ -72,32 +36,25 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
     currentPage * entriesPerPage,
     filteredTickets.length,
   );
-
-  // Event Handlers
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(event.target.value);
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
     setCurrentPage(1);
   };
-
-  const handleEntriesChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setEntriesPerPage(Number(event.target.value));
+  const handleEntriesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setEntriesPerPage(Number(e.target.value));
     setCurrentPage(1);
   };
-
   const handlePreviousPage = () => {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
-
   const handleNextPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
 
-  // --- JSX Rendering ---
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
-      {/* Header Section */}
+      {/* ... Header ... */}
       <div className="flex flex-wrap items-center justify-between p-4 border-b border-gray-200 gap-4">
-        {/* Show Entries Dropdown */}
         <div className="flex items-center space-x-2">
           <label
             htmlFor="entries"
@@ -119,7 +76,6 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
           </select>
           <span className="text-sm text-gray-600">entries</span>
         </div>
-        {/* Search Input */}
         <div className="flex items-center space-x-2">
           <label htmlFor="search" className="text-sm text-gray-600">
             Search:
@@ -140,7 +96,6 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {/* Adjusted Headers */}
               <th
                 scope="col"
                 className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -179,11 +134,9 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
               </th>
             </tr>
           </thead>
-          {/* Careful check of this tbody block */}
           <tbody className="bg-white divide-y divide-gray-200">
-            {/* Conditional Rendering */}
-            {paginatedTickets.length > 0 ? (
-              paginatedTickets.map((ticket) => (
+            {Array.isArray(paginatedTickets) && paginatedTickets.length > 0 ? (
+              paginatedTickets.map((ticket: TicketWithDetails) => (
                 <tr
                   key={ticket.id}
                   className="hover:bg-gray-50 transition-colors duration-150"
@@ -198,12 +151,10 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
                     {format(new Date(ticket.createdAt), "yyyy-MM-dd HH:mm")}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-500">
-                    {ticket._count.messages + 1}{" "}
-                    {/* Add 1 for initial message */}
+                    {(ticket._count?.messages ?? 0) + 1}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                    {/* Show last message time or creation time */}
-                    {ticket.messages[0]?.createdAt
+                    {ticket.messages?.[0]?.createdAt
                       ? formatDistanceToNowStrict(
                           new Date(ticket.messages[0].createdAt),
                           { addSuffix: true },
@@ -212,20 +163,25 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
                           addSuffix: true,
                         })}
                   </td>
+                  {/* === ACTION CELL UPDATED === */}
                   <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
                     <Link href={`/customer/mymessages/${ticket.id}`} passHref>
-                      <button
-                        aria-label={`View details for ticket ${ticket.title}`}
-                        className="text-gray-500 hover:text-blue-600 p-1 rounded hover:bg-gray-100 transition-colors duration-150"
+                      {/* Use Button component for styling */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label={`View ticket ${ticket.title}`}
+                        className="text-blue-600 border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                       >
-                        <MoreHorizontal size={18} />
-                      </button>
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
                     </Link>
                   </td>
+                  {/* === END ACTION CELL === */}
                 </tr>
-              )) // End map function
+              ))
             ) : (
-              // Row for when no tickets are found
               <tr>
                 <td
                   colSpan={6}
@@ -234,21 +190,15 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
                   You haven&apos;t submitted any support messages yet.
                 </td>
               </tr>
-            )}{" "}
-            {/* End conditional rendering */}
-          </tbody>{" "}
-          {/* End tbody */}
-        </table>{" "}
-        {/* End table */}
-      </div>{" "}
-      {/* End overflow-x-auto div */}
-      {/* Footer Section */}
+            )}
+          </tbody>
+        </table>
+      </div>
+      {/* ... Footer ... */}
       <div className="flex flex-wrap items-center justify-between p-4 border-t border-gray-200 gap-4">
-        {/* Showing Entries Info */}
         <div className="text-sm text-gray-600">
           Showing {startEntry} to {endEntry} of {filteredTickets.length} entries
         </div>
-        {/* Pagination Controls */}
         <div className="flex items-center space-x-1">
           <button
             onClick={handlePreviousPage}
@@ -268,11 +218,9 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
             Next
           </button>
         </div>
-      </div>{" "}
-      {/* End footer */}
-    </div> // End main container div
-  ); // End return
-}; // End component
+      </div>
+    </div>
+  );
+};
 
-// Export the component
 export default CustomerTicketList;

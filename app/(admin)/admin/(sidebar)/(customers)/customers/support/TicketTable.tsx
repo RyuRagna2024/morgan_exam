@@ -2,8 +2,10 @@
 
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useTransition } from "react";
 import Link from "next/link";
+// Corrected import path including route groups
+import { TicketWithDetails } from "@/app/(admin)/admin/(sidebar)/(customers)/customers/support/page";
 import { TicketStatus } from "@prisma/client";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import {
@@ -12,20 +14,27 @@ import {
   CheckCircle,
   LoaderCircle,
   XCircle,
-  Trash2,
+  Trash2, // Keep Trash2 if you might add delete later
 } from "lucide-react";
-import { Button } from "@/components/ui/button"; // Assuming Shadcn Button path
+import { Button } from "@/components/ui/button"; // Adjust path if needed
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"; // Assuming Shadcn Dropdown path
-import { TicketWithDetails } from "./page";
+} from "@/components/ui/dropdown-menu"; // Adjust path if needed
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+// Corrected import path including route groups and _actions
+import { updateTicketStatus } from "@/app/(admin)/admin/(sidebar)/(customers)/customers/support/update-ticket-status";
 
-// --- Helper: Status Badge Component --- (Keep as is)
-const StatusBadge = ({ status }: { status: TicketStatus }) => {
+// --- Helper: Status Badge Component ---
+export const StatusBadge = ({
+  status,
+}: {
+  status: TicketStatus;
+}): JSX.Element => {
   const baseClasses =
     "px-2 py-0.5 rounded-full text-xs font-medium inline-block capitalize";
   let colorClasses = "";
@@ -42,6 +51,7 @@ const StatusBadge = ({ status }: { status: TicketStatus }) => {
       break;
     default:
       colorClasses = "bg-gray-100 text-gray-600";
+      break;
   }
   const formattedStatus = status.replace("_", " ").toLowerCase();
   return (
@@ -51,24 +61,25 @@ const StatusBadge = ({ status }: { status: TicketStatus }) => {
 
 // --- Main Table Component ---
 interface TicketTableProps {
-  tickets: TicketWithDetails[]; // Prop type using the imported type
+  tickets: TicketWithDetails[];
 }
 
 export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
+  // --- State ---
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [updatingTicketId, setUpdatingTicketId] = useState<string | null>(null);
 
-  // Memoized filtering logic with explicit return type
+  // --- Memoized Logic ---
   const filteredTickets = useMemo((): TicketWithDetails[] => {
-    // <-- Add explicit return type
     const lowerSearchTerm = searchTerm.toLowerCase();
-    // Add safety check for initial state or errors
     if (!Array.isArray(tickets)) return [];
     if (!lowerSearchTerm) return tickets;
     return tickets.filter(
       (ticket) =>
-        // Add nullish coalescing for safety
         (ticket.title?.toLowerCase() ?? "").includes(lowerSearchTerm) ||
         (ticket.creator?.username?.toLowerCase() ?? "").includes(
           lowerSearchTerm,
@@ -81,21 +92,16 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
           lowerSearchTerm,
         ),
     );
-    // Keep dependencies - ESLint warning might resolve after fixing types
   }, [tickets, searchTerm]);
 
-  // Memoized pagination logic with explicit return type
   const paginatedTickets = useMemo((): TicketWithDetails[] => {
-    // <-- Add explicit return type
     const startIndex = (currentPage - 1) * entriesPerPage;
     const endIndex = startIndex + entriesPerPage;
-    // Add safety check
     if (!Array.isArray(filteredTickets)) return [];
     return filteredTickets.slice(startIndex, endIndex);
-    // Keep dependencies
   }, [filteredTickets, currentPage, entriesPerPage]);
 
-  // Calculate total pages - error should resolve now
+  // Calculate total pages and entry range (ensure calculated before handlers use totalPages)
   const totalPages = Math.ceil(filteredTickets.length / entriesPerPage);
   const startEntry =
     filteredTickets.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0;
@@ -104,40 +110,49 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
     filteredTickets.length,
   );
 
-  // Handlers (remain the same)
+  // --- Event Handlers (Lines ~76-81 area) ---
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
     setCurrentPage(1);
   };
+
   const handleEntriesChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setEntriesPerPage(Number(event.target.value));
     setCurrentPage(1);
   };
+
   const handlePreviousPage = () => {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
+
   const handleNextPage = () => {
+    // Ensure totalPages is calculated correctly before this is called
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
 
-  // Placeholder Action Handlers (remain the same)
+  // --- Action Handlers ---
   const handleSetStatus = (ticketId: string, status: TicketStatus) => {
-    alert(
-      `Action: Set status for ticket ${ticketId.substring(0, 8)} to ${status}`,
-    );
+    setUpdatingTicketId(ticketId);
+    startTransition(async () => {
+      const result = await updateTicketStatus(ticketId, status);
+      if (result.success) {
+        toast.success(result.message || "Status updated successfully!");
+      } else {
+        toast.error(result.message || "Failed to update status.");
+      }
+      setUpdatingTicketId(null);
+    });
   };
-  const handleDelete = (ticketId: string) => {
-    if (confirm(`Delete ticket ${ticketId.substring(0, 8)}?`)) {
-      alert(`Action: Delete ticket ${ticketId.substring(0, 8)}`);
-    }
-  };
+
+  // Placeholder for delete if you add it back later
+  // const handleDelete = (ticketId: string) => { /* ... */ };
 
   // --- JSX Rendering ---
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
       {/* Header Section */}
       <div className="flex flex-wrap items-center justify-between p-4 border-b border-gray-200 gap-4">
-        {/* ... entries dropdown ... */}
+        {/* Entries Dropdown */}
         <div className="flex items-center space-x-2">
           <label
             htmlFor="entries"
@@ -159,7 +174,7 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
           </select>
           <span className="text-sm text-gray-600">entries</span>
         </div>
-        {/* ... search input ... */}
+        {/* Search Input */}
         <div className="flex items-center space-x-2">
           <label htmlFor="search" className="text-sm text-gray-600">
             Search:
@@ -174,14 +189,14 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
             className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
-      </div>
-
+      </div>{" "}
+      {/* End Header Div */}
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {/* Headers remain the same */}
+              {/* Headers */}
               <th
                 scope="col"
                 className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -233,18 +248,18 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {/* Add safety check */}
+            {/* Rows */}
             {Array.isArray(paginatedTickets) && paginatedTickets.length > 0 ? (
               // Explicitly type 'ticket' here
-              paginatedTickets.map(
-                (
-                  ticket: TicketWithDetails, // <-- Add type here
-                ) => (
+              paginatedTickets.map((ticket: TicketWithDetails) => {
+                const isCurrentTicketUpdating =
+                  updatingTicketId === ticket.id && isPending;
+                return (
                   <tr
                     key={ticket.id}
-                    className="hover:bg-gray-50 transition-colors duration-150"
+                    className={`hover:bg-gray-50 transition-colors duration-150 ${isCurrentTicketUpdating ? "opacity-70" : ""}`}
                   >
-                    {/* Cells - Add optional chaining ?. where appropriate */}
+                    {/* Cells */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded inline-block">
                         #{ticket.id.substring(0, 8)}...
@@ -258,8 +273,7 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                       {ticket.creator?.username ?? "N/A"}
-                    </td>{" "}
-                    {/* Added ?. */}
+                    </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                       {format(
                         new Date(ticket.createdAt),
@@ -269,28 +283,33 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
                     <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-500">
                       {(ticket._count?.messages ?? 0) > 0
                         ? ticket._count.messages
-                        : "Initial"}{" "}
-                      {/* Added ?. */}
+                        : "Initial"}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      {ticket.messages?.[0]?.createdAt // Access with ?.
+                      {ticket.messages?.[0]?.createdAt
                         ? formatDistanceToNowStrict(
                             new Date(ticket.messages[0].createdAt),
                             { addSuffix: true },
                           )
                         : "No Replies"}
                     </td>
-                    {/* Actions Column */}
+                    {/* Actions Cell */}
                     <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
-                      {/* Dropdown Menu structure remains */}
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
+                        <DropdownMenuTrigger
+                          asChild
+                          disabled={isCurrentTicketUpdating || isPending}
+                        >
                           <Button
                             variant="ghost"
                             size="icon"
                             aria-label={`Actions for ticket ${ticket.id.substring(0, 8)}`}
                           >
-                            <MoreHorizontal className="h-4 w-4" />
+                            {isCurrentTicketUpdating ? (
+                              <LoaderCircle className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <MoreHorizontal className="h-4 w-4" />
+                            )}
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -308,7 +327,9 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
                             onClick={() =>
                               handleSetStatus(ticket.id, TicketStatus.OPEN)
                             }
-                            disabled={ticket.status === TicketStatus.OPEN}
+                            disabled={
+                              ticket.status === TicketStatus.OPEN || isPending
+                            }
                             className="flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
@@ -322,7 +343,8 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
                               )
                             }
                             disabled={
-                              ticket.status === TicketStatus.IN_PROGRESS
+                              ticket.status === TicketStatus.IN_PROGRESS ||
+                              isPending
                             }
                             className="flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
@@ -335,28 +357,23 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
                             }
                             disabled={
                               ticket.status === TicketStatus.CLOSED ||
-                              ticket.status === TicketStatus.RESOLVED
+                              ticket.status === TicketStatus.RESOLVED ||
+                              isPending
                             }
                             className="flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <XCircle className="mr-2 h-4 w-4 text-gray-600" />
                             <span>Set Status to Closed</span>
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(ticket.id)}
-                            className="flex items-center cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            <span>Delete</span>
-                          </DropdownMenuItem>
+                          {/* Removed Delete item */}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
                   </tr>
-                ),
-              ) // End map
+                ); // End return map
+              }) // End map
             ) : (
+              // No tickets row
               <tr>
                 <td
                   colSpan={8}
@@ -369,15 +386,15 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
             )}
           </tbody>
         </table>
-      </div>
-
+      </div>{" "}
+      {/* End Table container */}
       {/* Footer Section */}
       <div className="flex flex-wrap items-center justify-between p-4 border-t border-gray-200 gap-4">
-        {/* ... showing info ... */}
+        {/* Showing info */}
         <div className="text-sm text-gray-600">
           Showing {startEntry} to {endEntry} of {filteredTickets.length} entries
         </div>
-        {/* ... pagination controls ... */}
+        {/* Pagination */}
         <div className="flex items-center space-x-1">
           <button
             onClick={handlePreviousPage}
@@ -397,9 +414,10 @@ export const TicketTable: React.FC<TicketTableProps> = ({ tickets }) => {
             Next
           </button>
         </div>
-      </div>
-    </div>
-  );
-};
+      </div>{" "}
+      {/* End Footer */}
+    </div> // End Main Container div
+  ); // End Component Return
+}; // End Component Definition
 
 export default TicketTable;
