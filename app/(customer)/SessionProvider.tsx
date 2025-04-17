@@ -3,11 +3,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session as LuciaSession } from "lucia";
-// Import Prisma types ONLY if needed for casting/comparison, otherwise define locally
-// import { Tier } from "@prisma/client";
 
-// --- Define UserRole INCLUDING MANAGER ---
-// This type is LOCAL to the customer context
+// Define UserRole including MANAGER if needed elsewhere in customer context (unlikely but safe)
 export type UserRole =
   | "USER"
   | "CUSTOMER"
@@ -15,22 +12,24 @@ export type UserRole =
   | "EDITOR"
   | "ADMIN"
   | "SUPERADMIN"
-  | "MANAGER"; // Include all possible roles from Prisma for type compatibility
+  | "MANAGER";
 
-// Define the SessionUser type - Fields exposed to CUSTOMER client components
+// UPDATE SessionUser to include potentially needed fields client-side
 export interface SessionUser {
   id: string;
-  username: string;
+  username: string; // Already exists
   firstName: string;
   lastName: string;
   displayName: string;
-  email: string;
-  postcode: string; // Customer might need this
-  country: string; // Customer might need this
+  email: string; // Already exists
+  postcode: string; // Keep if used for shipping defaults etc.
+  country: string; // Keep if used for shipping defaults etc.
   avatarUrl: string | null;
   backgroundUrl: string | null;
-  role: UserRole; // Uses the UserRole type defined above
-  // ** tier is NOT included here **
+  role: UserRole;
+  phoneNumber?: string | null; // <<< ADDED phoneNumber (optional)
+  // NOTE: Address fields are generally NOT added here to avoid bloating the session.
+  // Fetch address details specifically when needed (e.g., checkout page).
 }
 
 // Extend Lucia's Session type
@@ -38,18 +37,24 @@ export interface SessionWithUser extends LuciaSession {
   user: SessionUser;
 }
 
-// Define the type for allowed updates for THIS provider
+// UPDATE CustomerProfileUpdates type
 type CustomerProfileUpdates = {
   avatarUrl?: string | undefined;
   backgroundUrl?: string | undefined;
-  // Add other customer-updatable fields here if needed later
+  firstName?: string | undefined;
+  lastName?: string | undefined;
+  displayName?: string | undefined;
+  username?: string | undefined; // <<< ADDED username
+  email?: string | undefined; // <<< ADDED email
+  phoneNumber?: string | null | undefined; // <<< ADDED phoneNumber (allow null)
+  // NOTE: Address fields are NOT added here, as they aren't in SessionUser
 };
 
 // Updated context interface
 interface SessionContext {
   user: SessionUser | null;
   session: SessionWithUser | null;
-  updateProfile: (updates: CustomerProfileUpdates) => void; // Use specific update type
+  updateProfile: (updates: CustomerProfileUpdates) => void;
 }
 
 const SessionContext = createContext<SessionContext | null>(null);
@@ -60,26 +65,20 @@ export default function SessionProvider({
 }: {
   children: React.ReactNode;
   value: {
-    user: SessionUser | null; // Expects the SessionUser defined above
+    user: SessionUser | null;
     session: LuciaSession | null;
   };
 }) {
   const [userData, setUserData] = useState<SessionUser | null>(value.user);
 
-  // Sync state if the initial value prop changes
   useEffect(() => {
     setUserData(value.user);
   }, [value.user]);
 
-  // Update function specific to customer profile (only images for now)
   const updateProfile = (updates: CustomerProfileUpdates) => {
     setUserData((prevUser) => {
       if (!prevUser) return null;
-      // Merge only the allowed updates
-      return {
-        ...prevUser,
-        ...updates,
-      };
+      return { ...prevUser, ...updates };
     });
   };
 
