@@ -2,34 +2,56 @@
 "use client";
 
 import React, { useState } from "react";
+
+// Hooks and Context
+import { useSession } from "../../SessionProvider"; // Use customer SessionProvider
+
+// Actions and Types
+import {
+  updateCheckoutDetails,
+  updateCustomerProfileInfo,
+} from "./_actions/actions";
+import {
+  CheckoutDetailsFormValues,
+  ProfileUpdateFormValues,
+} from "./_actions/types";
+
+// UI Components
 import ProfileInfoForm from "./_components/ProfileInfoForm";
-import { toast } from "react-hot-toast";
+import CheckoutDetailsForm from "./_components/CheckoutDetailsForm";
+import { toast } from "react-hot-toast"; // Or use sonner
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useSession } from "../../SessionProvider";
-import { updateCustomerProfileInfo } from "./_actions/actions";
-import { ProfileUpdateFormValues } from "./_actions/types";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
 
 export default function CustomerSettingsPage() {
   const { user: sessionUser, updateProfile: updateClientSessionProfile } =
     useSession();
   const [isSubmittingInfo, setIsSubmittingInfo] = useState(false);
+  const [isSubmittingCheckout, setIsSubmittingCheckout] = useState(false); // Separate state
 
+  // Handler for Personal Info Form
   const handleProfileInfoSubmit = async (data: ProfileUpdateFormValues) => {
     setIsSubmittingInfo(true);
     const result = await updateCustomerProfileInfo(data);
-
     if (result.success) {
       toast.success(result.success);
-      // Update client-side session state for fields present in SessionUser
+      // Update client state for relevant fields
       updateClientSessionProfile({
         firstName: data.firstName,
         lastName: data.lastName,
         displayName: data.displayName,
-        username: data.username, // <<< Update username in client state
-        email: data.email, // <<< Update email in client state
-        phoneNumber: data.phoneNumber, // <<< Update phone in client state
-        // NOTE: Address fields are NOT updated here as they aren't in SessionUser
+        username: data.username,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
+        country: data.country,
+        postcode: data.postcode,
       });
     } else if (result.error) {
       toast.error(result.error);
@@ -39,23 +61,73 @@ export default function CustomerSettingsPage() {
     setIsSubmittingInfo(false);
   };
 
+  // Handler for Checkout Details Form
+  const handleCheckoutDetailsSubmit = async (
+    data: CheckoutDetailsFormValues,
+  ) => {
+    setIsSubmittingCheckout(true);
+    const result = await updateCheckoutDetails(data); // Call the specific action
+    if (result.success) {
+      toast.success(result.success);
+      // Update overlapping fields in client session state if necessary
+      updateClientSessionProfile({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
+        country: data.country,
+        postcode: data.postcode,
+      });
+    } else if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.error("An unknown error occurred while updating checkout details.");
+    }
+    setIsSubmittingCheckout(false);
+  };
+
+  // --- Loading State ---
   if (!sessionUser) {
+    // Render loading skeletons if session data isn't ready
     return (
       <div className="space-y-6 max-w-4xl mx-auto">
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p>Loading user settings...</p>
+        {/* Skeleton for page title */}
+        <Skeleton className="h-8 w-1/4 mb-6" />
+
+        {/* Skeleton for Tabs List */}
+        <Skeleton className="h-10 w-full mb-6" />
+
+        {/* Skeleton for Tab Content (mimicking a Card structure) */}
+        <div className="space-y-6">
+          {" "}
+          {/* Use space-y on the wrapper */}
+          <Skeleton className="h-6 w-1/3 mb-2" /> {/* Card Title */}
+          <Skeleton className="h-4 w-2/3 mb-6" /> {/* Card Description */}
+          <div className="space-y-4 p-6 border rounded-md">
+            {" "}
+            {/* Mimic CardContent padding/border */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
+          <div className="flex justify-end pt-4">
+            {" "}
+            {/* Mimic CardFooter */}
+            <Skeleton className="h-10 w-24" />
+          </div>
+        </div>
       </div>
     );
   }
 
-  // --- IMPORTANT: Prepare user prop for ProfileInfoForm ---
-  // Since ProfileInfoForm expects address fields etc, but sessionUser might not have them ALL YET
-  // (they come from the full DB user initially), we might need to fetch the full user here
-  // OR ensure the initial SessionUser passed from the LAYOUT includes these fields.
-  // For now, assuming sessionUser *might* have them (if added in layout/SessionProvider)
-  // A safer approach might be fetching full user details on this page with useEffect.
-  // However, we proceed assuming `sessionUser` has the needed fields for pre-population.
-
+  // --- Render Actual Content ---
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-semibold">Settings</h1>
@@ -67,34 +139,36 @@ export default function CustomerSettingsPage() {
           <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
 
+        {/* Personal Info Tab */}
         <TabsContent value="personal-info" className="mt-6">
-          {/* Pass sessionUser which should contain the necessary fields for pre-population */}
           <ProfileInfoForm
-            user={sessionUser} // Pass the user object from useSession
+            user={sessionUser} // Pass loaded user data
             onSubmit={handleProfileInfoSubmit}
             isSubmitting={isSubmittingInfo}
           />
         </TabsContent>
 
-        {/* Other Tabs remain the same */}
+        {/* Checkout Details Tab */}
         <TabsContent value="checkout-details" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Checkout Details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">(Address management...)</p>
-            </CardContent>
-          </Card>
+          <CheckoutDetailsForm
+            user={sessionUser} // Pass loaded user data
+            onSubmit={handleCheckoutDetailsSubmit}
+            isSubmitting={isSubmittingCheckout}
+          />
         </TabsContent>
+
+        {/* Security Tab */}
         <TabsContent value="security" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Security</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">(Password change...)</p>
+              <p className="text-muted-foreground">
+                (Password change, 2FA, etc. - implementation needed)
+              </p>
             </CardContent>
+            {/* Optional: Add actions/forms here */}
           </Card>
         </TabsContent>
       </Tabs>

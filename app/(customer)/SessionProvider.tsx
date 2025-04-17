@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session as LuciaSession } from "lucia";
 
-// Define UserRole including MANAGER if needed elsewhere in customer context (unlikely but safe)
+// Define UserRole (ensure it's comprehensive if needed across customer context)
 export type UserRole =
   | "USER"
   | "CUSTOMER"
@@ -14,43 +14,45 @@ export type UserRole =
   | "SUPERADMIN"
   | "MANAGER";
 
-// UPDATE SessionUser to include potentially needed fields client-side
+// SessionUser type (should already include postcode and country)
 export interface SessionUser {
   id: string;
-  username: string; // Already exists
+  username: string;
   firstName: string;
   lastName: string;
   displayName: string;
-  email: string; // Already exists
-  postcode: string; // Keep if used for shipping defaults etc.
-  country: string; // Keep if used for shipping defaults etc.
+  email: string;
+  postcode: string; // <<< Already here
+  country: string; // <<< Already here
   avatarUrl: string | null;
   backgroundUrl: string | null;
   role: UserRole;
-  phoneNumber?: string | null; // <<< ADDED phoneNumber (optional)
-  // NOTE: Address fields are generally NOT added here to avoid bloating the session.
-  // Fetch address details specifically when needed (e.g., checkout page).
+  phoneNumber?: string | null;
 }
 
-// Extend Lucia's Session type
+// SessionWithUser (no changes needed)
 export interface SessionWithUser extends LuciaSession {
   user: SessionUser;
 }
 
-// UPDATE CustomerProfileUpdates type
+// --- MODIFIED CustomerProfileUpdates type ---
+// Define the type for allowed updates for THIS provider
+// ADD country and postcode
 type CustomerProfileUpdates = {
   avatarUrl?: string | undefined;
   backgroundUrl?: string | undefined;
   firstName?: string | undefined;
   lastName?: string | undefined;
   displayName?: string | undefined;
-  username?: string | undefined; // <<< ADDED username
-  email?: string | undefined; // <<< ADDED email
-  phoneNumber?: string | null | undefined; // <<< ADDED phoneNumber (allow null)
-  // NOTE: Address fields are NOT added here, as they aren't in SessionUser
+  username?: string | undefined;
+  email?: string | undefined;
+  phoneNumber?: string | null | undefined;
+  postcode?: string | undefined; // <<< ADDED
+  country?: string | undefined; // <<< ADDED
 };
+// --- END MODIFICATION ---
 
-// Updated context interface
+// SessionContext interface (no changes needed)
 interface SessionContext {
   user: SessionUser | null;
   session: SessionWithUser | null;
@@ -75,6 +77,7 @@ export default function SessionProvider({
     setUserData(value.user);
   }, [value.user]);
 
+  // updateProfile function remains the same, it merges any valid keys
   const updateProfile = (updates: CustomerProfileUpdates) => {
     setUserData((prevUser) => {
       if (!prevUser) return null;
