@@ -1,6 +1,7 @@
-// app / customer / _components / sidebar / ProfileEditModal;
+"use client"; // <<< MUST BE THE VERY FIRST LINE
 
-("use client");
+// You can put comments *after* the directive
+// This modal provides the backdrop and close functionality
 
 import { useState, useEffect, ReactNode } from "react";
 import { X } from "lucide-react";

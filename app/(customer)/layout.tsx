@@ -28,7 +28,6 @@ export default async function CustomerLayout({
   }
 
   // --- Create the client-safe SessionUser object ---
-  // Include ONLY the fields defined in app/(customer)/SessionProvider.tsx SessionUser interface
   const sessionUser: SessionUser = {
     id: fullUser.id,
     username: fullUser.username,
@@ -36,14 +35,11 @@ export default async function CustomerLayout({
     lastName: fullUser.lastName,
     displayName: fullUser.displayName,
     email: fullUser.email,
-    // Include postcode and country if they are DEFINED in the customer SessionUser interface
     postcode: fullUser.postcode,
     country: fullUser.country,
     avatarUrl: fullUser.avatarUrl,
     backgroundUrl: fullUser.backgroundUrl,
-    // Cast the role from Prisma's enum to the SessionProvider's defined type
     role: fullUser.role as SessionUser["role"],
-    // ** NOTE: tier is intentionally omitted here to match CustomerSessionProvider **
   };
 
   // Fetch order and wishlist counts
@@ -58,47 +54,49 @@ export default async function CustomerLayout({
     ? wishlistCountResponse.wishlistItemCount || 0
     : 0;
 
+  // --- !!! IMPORTANT: Determine Navbar Height !!! ---
+  // Inspect your Customer Navbar component in the browser dev tools
+  // Replace these example values with the ACTUAL computed height in pixels
+  const navbarHeightDesktop = 88; // Example: Replace with actual desktop height
+  const navbarHeightMobile = 88; // Example: Replace with actual mobile height (might be different)
+
   return (
-    // Provide the session context using the customer-specific SessionProvider
-    // Pass the correctly typed sessionUser object to the 'value' prop
     <SessionProvider value={{ user: sessionUser, session: session }}>
-      {/* Configure react-hot-toast */}
       <Toaster
         position="top-center"
-        containerStyle={{ top: 80 }} // Adjust based on actual Navbar height
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: "#374151",
-            color: "#ffffff",
-            fontSize: "14px",
-            padding: "12px 16px",
-          },
-          success: { duration: 2500 },
-          error: { duration: 4000 },
-        }}
+        containerStyle={{ top: navbarHeightDesktop + 16 }} // Position below desktop navbar
+        toastOptions={
+          {
+            /* ... your options ... */
+          }
+        }
       />
 
-      {/* Main layout structure */}
       <div className="flex flex-col min-h-screen">
-        {/* Customer specific Navbar */}
-        <Navbar />
+        {/* Fixed Navbar Wrapper */}
+        <div className="fixed top-0 left-0 right-0 z-50">
+          <Navbar />
+        </div>
+
+        {/* --- SPACER DIVs using Tailwind arbitrary values --- */}
+        {/* Spacer for mobile */}
+        <div className={`block md:hidden h-[${navbarHeightMobile}px]`} />
+        {/* Spacer for desktop */}
+        <div className={`hidden md:block h-[${navbarHeightDesktop}px]`} />
+
         {/* Container for Sidebar + Main Content */}
-        <div className="flex flex-1 pt-16 md:pt-[88px] overflow-hidden">
-          {" "}
-          {/* Adjust pt to match Navbar height */}
-          {/* Customer specific Sidebar */}
-          {/* Pass the correctly typed sessionUser object */}
-          <CustomerSidebar
-            user={sessionUser} // Uses the sessionUser created above
-            orderCount={orderCount}
-            wishlistCount={wishlistCount}
-          />
-          {/* Main Content Area - Adjust ml- if sidebar width changes */}
-          <main className="flex-grow p-6 ml-0 md:ml-64 transition-all duration-300 bg-slate-100 overflow-y-auto">
-            {" "}
-            {/* Added md:ml-64 for sidebar spacing */}
-            {children} {/* Render the specific customer page content */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar */}
+          <div className="hidden md:flex h-full">
+            <CustomerSidebar
+              user={sessionUser}
+              orderCount={orderCount}
+              wishlistCount={wishlistCount}
+            />
+          </div>
+          {/* Main Content Area */}
+          <main className="flex-grow p-6 bg-slate-100 overflow-y-auto">
+            {children}
           </main>
         </div>
       </div>
