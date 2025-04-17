@@ -1,4 +1,4 @@
-// src/components/ProfileSection.tsx
+// app/(customer)_components/(sidebar)/ProfileSection.tsx
 
 "use client";
 

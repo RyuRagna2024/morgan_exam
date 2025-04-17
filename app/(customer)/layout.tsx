@@ -1,13 +1,16 @@
+// app/(customer)/layout.tsx
 import { validateRequest } from "@/auth";
 import { redirect } from "next/navigation";
-import SessionProvider from "./SessionProvider";
-import { Toaster } from "react-hot-toast"; // Keep this import
-import { UserRole } from "@prisma/client";
-import Navbar from "./_components/Navbar";
-import CustomerSidebar from "./_components/CustomerSidebar";
-import { getCustomerOrderCount } from "./_components/(sidebar)/_profile-actions/count-orders";
-import { getCustomerWishlistCount } from "./_components/(sidebar)/_profile-actions/count-wishlist";
+// Import SessionProvider AND SessionUser type from THIS directory's provider
+import SessionProvider, { SessionUser } from "./SessionProvider";
+import { Toaster } from "react-hot-toast"; // Using react-hot-toast as per original
+import { UserRole as PrismaUserRole } from "@prisma/client"; // Use alias for Prisma enum
+import Navbar from "./_components/Navbar"; // Assuming Navbar is specific to customer
+import CustomerSidebar from "./_components/CustomerSidebar"; // Import CustomerSidebar
+import { getCustomerOrderCount } from "./_components/(sidebar)/_profile-actions/count-orders"; // Adjust path if needed
+import { getCustomerWishlistCount } from "./_components/(sidebar)/_profile-actions/count-wishlist"; // Adjust path if needed
 
+// Recommended for pages fetching dynamic data
 export const dynamic = "force-dynamic";
 
 export default async function CustomerLayout({
@@ -15,70 +18,87 @@ export default async function CustomerLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await validateRequest();
+  // Fetch full user data and session from auth
+  const { user: fullUser, session } = await validateRequest();
 
-  if (!session.user || session.user.role !== UserRole.CUSTOMER) {
-    redirect("/");
+  // Authentication and Authorization check
+  if (!fullUser || !session || fullUser.role !== PrismaUserRole.CUSTOMER) {
+    // Redirect if not logged in or not a customer
+    return redirect("/"); // Redirect to home or login page
   }
 
-  // Get the order count and wishlist count in parallel
+  // --- Create the client-safe SessionUser object ---
+  // Include ONLY the fields defined in app/(customer)/SessionProvider.tsx SessionUser interface
+  const sessionUser: SessionUser = {
+    id: fullUser.id,
+    username: fullUser.username,
+    firstName: fullUser.firstName,
+    lastName: fullUser.lastName,
+    displayName: fullUser.displayName,
+    email: fullUser.email,
+    // Include postcode and country if they are DEFINED in the customer SessionUser interface
+    postcode: fullUser.postcode,
+    country: fullUser.country,
+    avatarUrl: fullUser.avatarUrl,
+    backgroundUrl: fullUser.backgroundUrl,
+    // Cast the role from Prisma's enum to the SessionProvider's defined type
+    role: fullUser.role as SessionUser["role"],
+    // ** NOTE: tier is intentionally omitted here to match CustomerSessionProvider **
+  };
+
+  // Fetch order and wishlist counts
   const [orderCountResponse, wishlistCountResponse] = await Promise.all([
     getCustomerOrderCount(),
     getCustomerWishlistCount(),
   ]);
-
-  // Extract the counts or use 0 as fallback
   const orderCount = orderCountResponse.success
     ? orderCountResponse.totalOrders || 0
     : 0;
-
   const wishlistCount = wishlistCountResponse.success
     ? wishlistCountResponse.wishlistItemCount || 0
     : 0;
 
   return (
-    <SessionProvider value={session}>
-      {/* --- CONFIGURED TOASTER --- */}
+    // Provide the session context using the customer-specific SessionProvider
+    // Pass the correctly typed sessionUser object to the 'value' prop
+    <SessionProvider value={{ user: sessionUser, session: session }}>
+      {/* Configure react-hot-toast */}
       <Toaster
-        position="top-center" // Keep toasts centered horizontally
-        containerStyle={{
-          top: 80, // Navbar height (64px from pt-16) + 16px spacing = 80px from the top
-        }}
+        position="top-center"
+        containerStyle={{ top: 80 }} // Adjust based on actual Navbar height
         toastOptions={{
-          // Default options for all toasts
-          duration: 3000, // Default duration in ms
+          duration: 3000,
           style: {
-            background: "#374151", // Example: bg-gray-700
-            color: "#ffffff", // Example: text-white
-            fontSize: "14px", // Adjust font size if needed
-            padding: "12px 16px", // Adjust padding
+            background: "#374151",
+            color: "#ffffff",
+            fontSize: "14px",
+            padding: "12px 16px",
           },
-          // Default options for specific types
-          success: {
-            duration: 2500, // Auto-close success toasts after 2.5s (overlaps with your 2s redirect)
-            // You could define specific success styling here if needed
-            // style: { background: 'green' }
-            // iconTheme: { primary: '#10B981', secondary: 'white' }, // Example: Emerald icon
-          },
-          error: {
-            duration: 4000, // Give more time to read errors
-            // style: { background: '#EF4444', color: 'white' }, // Example: bg-red-500
-          },
+          success: { duration: 2500 },
+          error: { duration: 4000 },
         }}
       />
-      {/* --- END TOASTER CONFIG --- */}
 
+      {/* Main layout structure */}
       <div className="flex flex-col min-h-screen">
+        {/* Customer specific Navbar */}
         <Navbar />
-        <div className="flex">
+        {/* Container for Sidebar + Main Content */}
+        <div className="flex flex-1 pt-16 md:pt-[88px] overflow-hidden">
+          {" "}
+          {/* Adjust pt to match Navbar height */}
+          {/* Customer specific Sidebar */}
+          {/* Pass the correctly typed sessionUser object */}
           <CustomerSidebar
-            user={session.user}
+            user={sessionUser} // Uses the sessionUser created above
             orderCount={orderCount}
             wishlistCount={wishlistCount}
           />
-          {/* Adjusted ml-* based on CustomerSidebar width if necessary */}
-          <main className="flex-grow p-6 ml-64 transition-all duration-300 bg-slate-100 min-h-screen pt-16">
-            {children}
+          {/* Main Content Area - Adjust ml- if sidebar width changes */}
+          <main className="flex-grow p-6 ml-0 md:ml-64 transition-all duration-300 bg-slate-100 overflow-y-auto">
+            {" "}
+            {/* Added md:ml-64 for sidebar spacing */}
+            {children} {/* Render the specific customer page content */}
           </main>
         </div>
       </div>

@@ -1,89 +1,81 @@
+// app/(customer)/_components/CustomerSidebar.tsx
 "use client";
 
-import Link from "next/link";
-import { useState, useEffect } from "react";
-import { ChevronLeft } from "lucide-react";
-import { usePathname } from "next/navigation";
-import ProfileSection from "./(sidebar)/ProfileSection";
-import StatsSection from "./(sidebar)/StatsSection";
-import NavigationLinks from "./(sidebar)/NavigationLinks";
-import { SessionUser } from "@/app/SessionProvider";
+import React, { useState } from "react";
+// Remove Link and usePathname imports if they are solely handled by NavigationLinks
+// import Link from "next/link";
+// import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+// --- Import SessionUser from the CORRECT (customer) provider ---
+import { SessionUser } from "../SessionProvider";
+import ProfileSection from "./(sidebar)/ProfileSection"; // Assuming ProfileSection exists here
+import NavigationLinks from "./(sidebar)/NavigationLinks"; // *** IMPORT NavigationLinks ***
 
 interface CustomerSidebarProps {
-  user: SessionUser;
+  user: SessionUser; // Uses the SessionUser from ../SessionProvider
   orderCount: number;
   wishlistCount: number;
 }
 
-export default function CustomerSidebar({
+const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   user,
-  orderCount,
+  orderCount, // Keep these if ProfileSection or NavigationLinks need them
   wishlistCount,
-}: CustomerSidebarProps) {
+}) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const pathname = usePathname();
+  // const pathname = usePathname(); // Probably not needed here anymore
 
-  useEffect(() => {
-    document
-      .querySelector("main")
-      ?.classList.remove(isCollapsed ? "ml-64" : "ml-16");
-    document
-      .querySelector("main")
-      ?.classList.add(isCollapsed ? "ml-16" : "ml-64");
-  }, [isCollapsed]);
-
-  const toggleSidebar = () => {
+  const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
   };
 
   return (
-    <div className="relative h-full">
-      {/* --- Modified Aside --- */}
+    <>
+      {/* Overlay for mobile when sidebar is open */}
+      {!isCollapsed && (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+          onClick={toggleCollapse}
+        />
+      )}
+
+      {/* Sidebar Container */}
       <aside
-        className={`${
-          isCollapsed ? "w-16" : "w-64"
-        } bg-slate-700 text-white fixed top-0 left-0 h-full transition-all duration-300 flex flex-col pt-16 z-10`} // Added flex flex-col, removed overflow-hidden
+        className={cn(
+          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-sidebar-border bg-white transition-all duration-300", // Adjust colors/borders
+          isCollapsed ? "w-16" : "w-64",
+        )}
       >
-        {/* Top Section (Profile + Stats) - Fixed Height */}
-        <div className="flex-shrink-0">
-          {" "}
-          {/* Prevents this section from growing/shrinking */}
-          <ProfileSection user={user} isCollapsed={isCollapsed} />
-          {!isCollapsed && (
-            <StatsSection
-              orderCount={orderCount}
-              wishlistCount={wishlistCount}
-            />
-          )}
-        </div>
-
-        {/* Navigation Links Section (Scrollable) */}
-        <div className="flex-grow overflow-y-auto">
-          {" "}
-          {/* Takes remaining space and allows vertical scrolling */}
-          <NavigationLinks isCollapsed={isCollapsed} currentPath={pathname} />
-        </div>
-        {/* --- End Modified Aside Content Structure --- */}
-      </aside>
-
-      {/* Toggle Button - position remains the same */}
-      <div
-        className={`fixed ${
-          isCollapsed ? "left-16" : "left-64"
-        } top-20 transition-all duration-300 z-20`} // Adjusted top slightly to match screenshot better, was top-100
-      >
+        {/* Sidebar Toggle Button */}
         <button
-          onClick={toggleSidebar}
-          className="bg-teal-500 text-white p-2 rounded-r-md w-8 h-8 flex items-center justify-center"
+          onClick={toggleCollapse}
+          className="absolute -right-3 top-4 z-50 flex h-6 w-6 items-center justify-center rounded-full bg-slate-600 text-white hover:bg-slate-500 ring-2 ring-white"
+          aria-label={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
-          <ChevronLeft
-            size={16}
-            className={`transition-transform duration-300 ${
-              isCollapsed ? "rotate-180" : ""
-            }`}
-          />
+          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
-      </div>
-    </div>
+
+        {/* Profile Section */}
+        {/* Pass relevant props down */}
+        <ProfileSection user={user} isCollapsed={isCollapsed} />
+
+        {/* Navigation Links Component */}
+        {/* Render the imported component and pass isCollapsed state */}
+        <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
+          <NavigationLinks isCollapsed={isCollapsed} />
+        </nav>
+
+        {/* Optional Footer */}
+        {!isCollapsed && (
+          <div className="border-t border-sidebar-border p-3 text-center text-xs text-gray-500">
+            {/* Footer content if needed */}
+          </div>
+        )}
+      </aside>
+    </>
   );
-}
+};
+
+export default CustomerSidebar;

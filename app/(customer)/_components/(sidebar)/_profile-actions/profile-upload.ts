@@ -1,5 +1,4 @@
-// src/app/(customer)/_components/(sidebar)/_profile-actions/upload-avatar.ts
-// (Adjust path if needed)
+// app/(customer)/_components/(sidebar)/_profile-actions/upload-avatar.ts
 
 "use server";
 

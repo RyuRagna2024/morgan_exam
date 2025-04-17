@@ -10,6 +10,7 @@ enum UserRole {
   EDITOR = "EDITOR",
   ADMIN = "ADMIN",
   SUPERADMIN = "SUPERADMIN",
+  MANAGER = "MANAGER",
 }
 
 // Define role-based routing
@@ -20,6 +21,7 @@ const roleRoutes: Record<UserRole, string> = {
   [UserRole.EDITOR]: "/",
   [UserRole.ADMIN]: "/admin",
   [UserRole.SUPERADMIN]: "/super-admin",
+  [UserRole.MANAGER]: "/manager",
 };
 
 function toUserRole(role: string): UserRole | undefined {

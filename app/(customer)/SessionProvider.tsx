@@ -1,48 +1,55 @@
-// src/app/SessionProvider.tsx (Adjust path if needed)
+// app/(customer)/SessionProvider.tsx
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session as LuciaSession } from "lucia";
+// Import Prisma types ONLY if needed for casting/comparison, otherwise define locally
+// import { Tier } from "@prisma/client";
 
-// Define the UserRole enum to match Prisma
+// --- Define UserRole INCLUDING MANAGER ---
+// This type is LOCAL to the customer context
 export type UserRole =
   | "USER"
   | "CUSTOMER"
   | "PROCUSTOMER"
   | "EDITOR"
   | "ADMIN"
-  | "SUPERADMIN";
+  | "SUPERADMIN"
+  | "MANAGER"; // Include all possible roles from Prisma for type compatibility
 
-// Define the SessionUser type with only the safe fields we want to expose
+// Define the SessionUser type - Fields exposed to CUSTOMER client components
 export interface SessionUser {
   id: string;
   username: string;
   firstName: string;
   lastName: string;
   displayName: string;
-  email: string; // <-- Add email here
-  postcode: string;
-  country: string;
+  email: string;
+  postcode: string; // Customer might need this
+  country: string; // Customer might need this
   avatarUrl: string | null;
   backgroundUrl: string | null;
-  role: UserRole;
-  // Add other fields you want available in the client-side session context
-  // Tier might not be needed client-side unless you use it for UI logic
+  role: UserRole; // Uses the UserRole type defined above
+  // ** tier is NOT included here **
 }
 
-// Extend Lucia's Session type with our user type
+// Extend Lucia's Session type
 export interface SessionWithUser extends LuciaSession {
   user: SessionUser;
 }
 
-// Updated context interface with profile update function
+// Define the type for allowed updates for THIS provider
+type CustomerProfileUpdates = {
+  avatarUrl?: string | undefined;
+  backgroundUrl?: string | undefined;
+  // Add other customer-updatable fields here if needed later
+};
+
+// Updated context interface
 interface SessionContext {
-  user: SessionUser | null; // Allow user to be null initially
-  session: SessionWithUser | null; // Allow session to be null initially
-  updateProfile: (updates: {
-    avatarUrl?: string;
-    backgroundUrl?: string;
-  }) => void;
+  user: SessionUser | null;
+  session: SessionWithUser | null;
+  updateProfile: (updates: CustomerProfileUpdates) => void; // Use specific update type
 }
 
 const SessionContext = createContext<SessionContext | null>(null);
@@ -53,35 +60,33 @@ export default function SessionProvider({
 }: {
   children: React.ReactNode;
   value: {
-    // Type for the initial value prop
-    user: SessionUser | null; // Allow null here too
-    session: LuciaSession | null; // Allow null
+    user: SessionUser | null; // Expects the SessionUser defined above
+    session: LuciaSession | null;
   };
 }) {
-  // Initialize state with the provided value, allowing null
   const [userData, setUserData] = useState<SessionUser | null>(value.user);
 
-  // Updated function to handle both avatar and background updates
-  const updateProfile = (updates: {
-    avatarUrl?: string;
-    backgroundUrl?: string;
-  }) => {
+  // Sync state if the initial value prop changes
+  useEffect(() => {
+    setUserData(value.user);
+  }, [value.user]);
+
+  // Update function specific to customer profile (only images for now)
+  const updateProfile = (updates: CustomerProfileUpdates) => {
     setUserData((prevUser) => {
-      if (!prevUser) return null; // Handle case where user might be null
+      if (!prevUser) return null;
+      // Merge only the allowed updates
       return {
         ...prevUser,
-        ...updates, // Apply updates
+        ...updates,
       };
     });
   };
 
-  // Construct the session value, handling potential nulls
   const sessionValue: SessionContext = {
     user: userData,
     session:
-      value.session && userData
-        ? { ...value.session, user: userData } // Only create SessionWithUser if both exist
-        : null,
+      value.session && userData ? { ...value.session, user: userData } : null,
     updateProfile,
   };
 
@@ -92,11 +97,11 @@ export default function SessionProvider({
   );
 }
 
+// useSession hook remains the same
 export function useSession() {
   const context = useContext(SessionContext);
   if (!context) {
     throw new Error("useSession must be used within a SessionProvider");
   }
-  // It's generally safer to return the context directly and let components handle null user/session
   return context;
 }

@@ -18,4 +18,4 @@
 
 ## Question 4
 
-[] Create a new user role. Call this role manager. Create a dashboard for this manager that has a navbar, a sidebar with 3 dummy routes on the sidebar. Allow the manager to login to his dashboard and also allow the manager to log out of their dashboard.
+[x] Create a new user role. Call this role manager. Create a dashboard for this manager that has a navbar, a sidebar with 3 dummy routes on the sidebar. Allow the manager to login to his dashboard and also allow the manager to log out of their dashboard.

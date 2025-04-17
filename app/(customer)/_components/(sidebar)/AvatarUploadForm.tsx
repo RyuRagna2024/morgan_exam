@@ -1,4 +1,4 @@
-// src/components/AvatarUploadForm.tsx
+// app/(customer)/_components/(sidebar)/AvatarUploadForm.tsx
 
 "use client";
 

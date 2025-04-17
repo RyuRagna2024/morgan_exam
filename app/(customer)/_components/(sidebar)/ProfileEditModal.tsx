@@ -1,4 +1,6 @@
-"use client";
+// app / customer / _components / sidebar / ProfileEditModal;
+
+("use client");
 
 import { useState, useEffect, ReactNode } from "react";
 import { X } from "lucide-react";

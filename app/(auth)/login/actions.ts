@@ -15,11 +15,10 @@ const roleRoutes: Record<UserRole, string> = {
   [UserRole.EDITOR]: "/",
   [UserRole.ADMIN]: "/admin",
   [UserRole.SUPERADMIN]: "/super-admin",
+  [UserRole.MANAGER]: "/manager",
 } as const;
 
-export async function login(
-  credentials: LoginFormValues,
-): Promise<{
+export async function login(credentials: LoginFormValues): Promise<{
   error?: string;
   redirectTo?: string;
   sessionCreated?: boolean;

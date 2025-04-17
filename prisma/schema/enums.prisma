@@ -5,6 +5,7 @@ enum UserRole {
     EDITOR
     ADMIN
     SUPERADMIN
+    MANAGER
 }
 
 enum SubscriptionStatus {
