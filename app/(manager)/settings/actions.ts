@@ -5,87 +5,92 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { validateRequest } from "@/auth";
-import { profileUpdateSchema } from "../_components/profile/types"; // Correct path
+// import { profileUpdateSchema } from "../_components/profile/types"; // Keep if using profile info form later
 
-// --- Action to update basic profile info ---
-export async function updateManagerProfileInfo(
-  values: z.infer<typeof profileUpdateSchema>,
-): Promise<{ success?: string; error?: string }> {
-  const { user } = await validateRequest();
-  if (!user || user.role !== "MANAGER") {
-    // Extra role check
-    return { error: "Unauthorized" };
-  }
+// --- ADD Vercel Blob ---
+import { put } from "@vercel/blob";
+import { UserRole } from "@prisma/client"; // Import UserRole if checking
 
-  try {
-    const validatedData = profileUpdateSchema.parse(values);
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        firstName: validatedData.firstName,
-        lastName: validatedData.lastName,
-        displayName: validatedData.displayName,
-      },
-    });
-
-    revalidatePath("/manager/settings");
-    revalidatePath("/manager", "layout"); // Revalidate layout using manager data
-    return { success: "Profile details updated!" };
-  } catch (error) {
-    console.error("Profile update error:", error);
-    if (error instanceof z.ZodError) return { error: "Invalid data." };
-    return { error: "Failed to update profile details." };
-  }
-}
+// --- Action to update basic profile info (Keep if needed elsewhere) ---
+// export async function updateManagerProfileInfo(...) { ... }
 
 // --- Action to handle BOTH Avatar & Background Uploads ---
-// Mimics the customer action 'uploadAvatar' based on the form structure
+// Define image constants
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+const MAX_IMAGE_SIZE = 1024 * 1024 * 5; // 5MB
+
 export async function uploadManagerImages(formData: FormData): Promise<{
-  success?: boolean;
+  success: boolean; // Make success non-optional
   error?: string;
-  avatarUrl?: string | null; // Return new URL if uploaded
-  backgroundUrl?: string | null; // Return new URL if uploaded
+  avatarUrl?: string | null;
+  backgroundUrl?: string | null;
 }> {
   const { user } = await validateRequest();
-  if (!user || user.role !== "MANAGER") {
-    return { error: "Unauthorized", success: false };
+  // Refined check: Ensure user exists and has MANAGER role
+  if (!user || user.role !== UserRole.MANAGER) {
+    return { success: false, error: "Unauthorized" };
   }
 
   const avatarFile = formData.get("avatar") as File | null;
   const backgroundFile = formData.get("background") as File | null;
 
-  let newAvatarUrl: string | null = null;
-  let newBackgroundUrl: string | null = null;
+  const hasAvatar = avatarFile && avatarFile.size > 0;
+  const hasBackground = backgroundFile && backgroundFile.size > 0;
+
+  if (!hasAvatar && !hasBackground) {
+    return { success: false, error: "No image file provided." };
+  }
+
+  let uploadedAvatarUrl: string | undefined = undefined;
+  let uploadedBackgroundUrl: string | undefined = undefined;
 
   try {
-    // --- !!! VITAL: Replace with your actual Cloud Storage Upload Logic !!! ---
-
-    if (avatarFile && avatarFile.size > 0) {
-      console.log(
-        `TODO: Upload avatar file: ${avatarFile.name} for user ${user.id}`,
-      );
-      // Example: const uploadedAvatar = await uploadToCloudStorage(avatarFile, `manager-avatars/${user.id}`);
-      // newAvatarUrl = uploadedAvatar.url;
-      newAvatarUrl = `https://picsum.photos/seed/avatar${Date.now()}/200`; // FAKE URL
-      console.warn("Using FAKE avatar upload URL!");
+    // --- Process Avatar IF Provided ---
+    if (hasAvatar && avatarFile) {
+      if (!ALLOWED_IMAGE_TYPES.includes(avatarFile.type)) {
+        return { success: false, error: "Invalid avatar image type" };
+      }
+      if (avatarFile.size > MAX_IMAGE_SIZE) {
+        return { success: false, error: "Avatar image too large (Max 5MB)" };
+      }
+      const avatarExt = avatarFile.name.split(".").pop() || "jpg";
+      // Use a distinct path for managers
+      const avatarPath = `manager-avatars/user_${user.id}_avatar_${Date.now()}.${avatarExt}`;
+      const avatarBlob = await put(avatarPath, avatarFile, {
+        access: "public",
+      });
+      uploadedAvatarUrl = avatarBlob.url;
     }
 
-    if (backgroundFile && backgroundFile.size > 0) {
-      console.log(
-        `TODO: Upload background file: ${backgroundFile.name} for user ${user.id}`,
-      );
-      // Example: const uploadedBackground = await uploadToCloudStorage(backgroundFile, `manager-backgrounds/${user.id}`);
-      // newBackgroundUrl = uploadedBackground.url;
-      newBackgroundUrl = `https://picsum.photos/seed/bg${Date.now()}/800/200`; // FAKE URL
-      console.warn("Using FAKE background upload URL!");
+    // --- Process Background IF Provided ---
+    if (hasBackground && backgroundFile) {
+      if (!ALLOWED_IMAGE_TYPES.includes(backgroundFile.type)) {
+        return { success: false, error: "Invalid background image type" };
+      }
+      if (backgroundFile.size > MAX_IMAGE_SIZE) {
+        return {
+          success: false,
+          error: "Background image too large (Max 5MB)",
+        };
+      }
+      const bgExt = backgroundFile.name.split(".").pop() || "jpg";
+      // Use a distinct path for managers
+      const bgPath = `manager-backgrounds/user_${user.id}_bg_${Date.now()}.${bgExt}`;
+      const bgBlob = await put(bgPath, backgroundFile, { access: "public" });
+      uploadedBackgroundUrl = bgBlob.url;
     }
-    // --- End Upload Logic ---
 
-    // Update database only if new URLs were generated
+    // --- Update Database Conditionally ---
     const dataToUpdate: { avatarUrl?: string; backgroundUrl?: string } = {};
-    if (newAvatarUrl) dataToUpdate.avatarUrl = newAvatarUrl;
-    if (newBackgroundUrl) dataToUpdate.backgroundUrl = newBackgroundUrl;
+    if (uploadedAvatarUrl !== undefined)
+      dataToUpdate.avatarUrl = uploadedAvatarUrl;
+    if (uploadedBackgroundUrl !== undefined)
+      dataToUpdate.backgroundUrl = uploadedBackgroundUrl;
 
     if (Object.keys(dataToUpdate).length > 0) {
       await prisma.user.update({
@@ -94,16 +99,28 @@ export async function uploadManagerImages(formData: FormData): Promise<{
       });
     }
 
-    revalidatePath("/manager/settings");
-    revalidatePath("/manager", "layout"); // Revalidate layout potentially using user data
+    // --- Revalidation ---
+    revalidatePath("/manager", "layout"); // Revalidate layout to update server components potentially using user data
+    // revalidatePath("/manager/settings"); // Keep if settings page uses this data
 
+    // --- Return Success Response ---
+    // Return the new URLs if they were uploaded, otherwise return the user's *existing* URLs
+    // This helps the client update state correctly.
     return {
       success: true,
-      avatarUrl: newAvatarUrl, // Return the newly generated URL (or null)
-      backgroundUrl: newBackgroundUrl, // Return the newly generated URL (or null)
+      avatarUrl:
+        uploadedAvatarUrl !== undefined ? uploadedAvatarUrl : user.avatarUrl,
+      backgroundUrl:
+        uploadedBackgroundUrl !== undefined
+          ? uploadedBackgroundUrl
+          : user.backgroundUrl,
     };
   } catch (error) {
-    console.error("Image upload action error:", error);
-    return { error: "Failed to upload image(s).", success: false };
+    console.error("Manager Image upload action error:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to upload image(s).",
+    };
   }
 }

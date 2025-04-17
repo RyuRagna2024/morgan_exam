@@ -5,9 +5,9 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { User as UserIcon, Pencil } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { toast } from "sonner"; // Using sonner as per manager setup
-import { Button } from "@/components/ui/button"; // *** ADDED: Import Button component ***
-import { uploadManagerImages } from "../../settings/actions"; // *** ADDED: Import server action ***
+import { toast } from "sonner"; // Using sonner
+import { Button } from "@/components/ui/button";
+import { uploadManagerImages } from "../../settings/actions"; // Import manager server action
 
 interface AvatarUploadFormProps {
   // URLs passed from the modal/page (reflecting current state)
@@ -74,7 +74,7 @@ export default function AvatarUploadForm({
     const newPreviewUrl = URL.createObjectURL(file);
     setAvatarPreviewUrl(newPreviewUrl);
     setCurrentAvatarBlobUrl(newPreviewUrl);
-    e.target.value = ""; // Reset input value
+    e.target.value = ""; // Reset input value so selecting the same file again works
   };
 
   const handleBackgroundFileSelect = (
@@ -92,61 +92,92 @@ export default function AvatarUploadForm({
 
   // --- Blob URL Cleanup Effect ---
   useEffect(() => {
+    // Capture the current blob URLs when the effect is set up
     const avatarBlob = currentAvatarBlobUrl;
     const bgBlob = currentBackgroundBlobUrl;
+
+    // Return a cleanup function
     return () => {
-      // Cleanup function
       revokeUrl(avatarBlob);
       revokeUrl(bgBlob);
     };
+    // Dependency array ensures cleanup targets the blobs from this specific render cycle
   }, [currentAvatarBlobUrl, currentBackgroundBlobUrl]);
 
   // --- Form Submission Handler ---
   const handleSubmit = async () => {
-    if (!selectedAvatarFile && !selectedBackgroundFile) {
+    const isAvatarSelected = !!selectedAvatarFile;
+    const isBackgroundSelected = !!selectedBackgroundFile;
+
+    // Check if at least one *new* file has been selected (client-side check)
+    if (!isAvatarSelected && !isBackgroundSelected) {
       toast.error("Please select a new avatar or background image.");
       return;
     }
 
     setIsUploading(true);
     const formData = new FormData();
-    if (selectedAvatarFile) formData.append("avatar", selectedAvatarFile);
-    if (selectedBackgroundFile)
+    // Append files only if they were selected
+    if (isAvatarSelected && selectedAvatarFile) {
+      formData.append("avatar", selectedAvatarFile);
+    }
+    if (isBackgroundSelected && selectedBackgroundFile) {
       formData.append("background", selectedBackgroundFile);
+    }
 
     try {
-      const response = await uploadManagerImages(formData); // Call the MANAGER action
+      // Call the MANAGER server action
+      const response = await uploadManagerImages(formData);
 
       if (response.success) {
-        // Determine the final URLs - use URL from response if that specific image was uploaded,
-        // otherwise keep the initial URL passed in via props for that image.
-        const finalAvatarUrl = response.avatarUrl ?? initialAvatarUrl;
-        const finalBackgroundUrl =
-          response.backgroundUrl ?? initialBackgroundUrl;
+        // Determine *what* was successfully updated by comparing response URLs with initial URLs
+        const avatarWasUpdated =
+          response.avatarUrl !== initialAvatarUrl && response.avatarUrl != null;
+        const backgroundWasUpdated =
+          response.backgroundUrl !== initialBackgroundUrl &&
+          response.backgroundUrl != null;
 
-        onUploadComplete(finalAvatarUrl, finalBackgroundUrl); // Inform parent (page/modal)
+        let successMessage = "Profile updated successfully!"; // Default
 
-        toast.success("Images updated successfully!"); // Simple success message
+        // Set specific success messages based on what changed
+        if (avatarWasUpdated && backgroundWasUpdated) {
+          successMessage =
+            "Awesome! Both profile and background images updated!";
+        } else if (avatarWasUpdated) {
+          successMessage = "You've updated your profile image successfully!!!";
+        } else if (backgroundWasUpdated) {
+          successMessage =
+            "You've updated your background image successfully!!!";
+        }
 
-        // Let the parent component (Modal/Page) handle closing
-        // onCloseRequest(); // Or keep the delayed close like customer version if preferred
+        toast.success(successMessage); // Show the correct message
+
+        // Call parent's handler with final URLs (new or old)
+        // Use ?? null to ensure undefined becomes null, satisfying the callback type
+        onUploadComplete(
+          response.avatarUrl ?? null,
+          response.backgroundUrl ?? null,
+        );
+
+        // Close modal after delay
         setTimeout(() => {
           onCloseRequest();
-        }, 1500);
+        }, 1500); // Adjust delay if needed
       } else {
-        toast.error(response.error || "Upload failed.");
-        setIsUploading(false);
+        // Handle errors reported by the server action
+        toast.error(response.error || "Upload failed. Please try again.");
+        setIsUploading(false); // Stop loading on server error
       }
     } catch (error) {
+      // Handle unexpected errors (e.g., network issues)
       console.error("Upload action error:", error);
       toast.error("An unexpected error occurred during upload.");
-      setIsUploading(false);
+      setIsUploading(false); // Stop loading on unexpected error
     }
-    // Don't set isUploading false here if closing modal
+    // No finally block setting isUploading=false, because success path closes modal
   };
 
   // --- Render ---
-  // Using the same structure as the Customer AvatarUploadForm provided
   return (
     <div className="text-center space-y-4">
       {/* Combined background and profile image preview */}
@@ -159,8 +190,9 @@ export default function AvatarUploadForm({
               alt="Background Preview"
               fill
               style={{ objectFit: "cover" }}
+              // Add unoptimized prop only for blob URLs
               unoptimized={backgroundPreviewUrl.startsWith("blob:")}
-              key={backgroundPreviewUrl}
+              key={backgroundPreviewUrl} // Key helps React detect changes
             />
           ) : (
             <div className="text-muted-foreground flex items-center justify-center h-full">
@@ -172,7 +204,7 @@ export default function AvatarUploadForm({
             type="button"
             onClick={() => backgroundFileInputRef.current?.click()}
             className="absolute right-2 top-2 bg-white rounded-full w-7 h-7 flex items-center justify-center shadow cursor-pointer hover:bg-gray-100 transition-colors z-10 ring-1 ring-border"
-            aria-label="Edit background image" // Label for the button itself
+            aria-label="Edit background image"
           >
             <Pencil size={14} className="text-gray-700" />
           </button>
@@ -185,9 +217,9 @@ export default function AvatarUploadForm({
             {/* Container for positioning edit icon */}
             <Avatar className="w-full h-full border-4 border-background shadow-lg bg-muted">
               <AvatarImage
-                src={avatarPreviewUrl ?? undefined} // Use undefined if null
+                src={avatarPreviewUrl ?? undefined} // Use undefined if null for AvatarImage
                 alt="Avatar Preview"
-                key={avatarPreviewUrl}
+                key={avatarPreviewUrl} // Key helps React detect changes
               />
               <AvatarFallback>
                 <UserIcon size={48} className="text-muted-foreground" />
@@ -198,7 +230,7 @@ export default function AvatarUploadForm({
               type="button"
               onClick={() => avatarFileInputRef.current?.click()}
               className="absolute right-0 bottom-0 bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center shadow border-2 border-background cursor-pointer hover:bg-primary/90 transition-colors z-10"
-              aria-label="Edit profile picture" // Label for the button itself
+              aria-label="Edit profile picture"
             >
               <Pencil size={14} />
             </button>
@@ -209,21 +241,23 @@ export default function AvatarUploadForm({
       {/* Hidden file inputs */}
       <input
         ref={backgroundFileInputRef}
+        id="background-upload"
         type="file"
         accept="image/*"
         className="hidden"
         onChange={handleBackgroundFileSelect}
         disabled={isUploading}
-        aria-label="Background image file input" // *** ADDED: aria-label ***
+        aria-label="Background image file input"
       />
       <input
         ref={avatarFileInputRef}
+        id="avatar-upload"
         type="file"
         accept="image/*"
         className="hidden"
         onChange={handleAvatarFileSelect}
         disabled={isUploading}
-        aria-label="Avatar image file input" // *** ADDED: aria-label ***
+        aria-label="Avatar image file input"
       />
 
       {/* Selection Info & Action Buttons */}
@@ -243,20 +277,21 @@ export default function AvatarUploadForm({
         )}
         {/* Action Buttons */}
         <div className="flex gap-3">
-          <Button // *** Using imported Button ***
+          <Button
             type="button"
             variant="outline"
-            onClick={onCloseRequest}
+            onClick={onCloseRequest} // Close modal immediately on cancel
             className="w-full"
-            disabled={isUploading}
+            disabled={isUploading} // Disable cancel while uploading
             aria-label="Cancel image changes"
           >
             Cancel
           </Button>
-          <Button // *** Using imported Button ***
+          <Button
             type="button"
-            onClick={handleSubmit}
+            onClick={handleSubmit} // Trigger the upload process
             className="w-full"
+            // Disable if EITHER no new file is selected OR an upload is in progress
             disabled={
               (!selectedAvatarFile && !selectedBackgroundFile) || isUploading
             }

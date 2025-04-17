@@ -1,9 +1,8 @@
 // app/(manager)/_components/UserButton.tsx
-
-"use client"; // This component needs client-side interactivity (dropdown, click handlers)
+"use client";
 
 import React from "react";
-import Link from "next/link"; // For the settings link
+import Link from "next/link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,69 +10,70 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"; // Adjust import path if needed
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Adjust import path
-import { Button } from "@/components/ui/button"; // Adjust import path
-import { LogOut, User as UserIcon, Settings } from "lucide-react"; // Import necessary icons
-import { User } from "lucia"; // Import Lucia's User type
-import { logout } from "@/app/(auth)/actions"; // Import the central logout server action
-import { toast } from "sonner"; // Import sonner for notifications
-import { cn } from "@/lib/utils"; // Import utility for class names
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { LogOut, Settings } from "lucide-react";
+import { useSession } from "../SessionProvider";
+import { logout } from "@/app/(auth)/actions";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import avatarPlaceholder from "../assets/avatar-placeholder.png"; // <<< Your static import
+import { StaticImageData } from "next/image"; // <<< IMPORT StaticImageData type
 
-// Define the expected props for this component
 interface UserButtonProps {
-  user: User; // Receive the full user object as a prop
-  className?: string; // Allow optional custom styling from parent
+  className?: string;
 }
 
-const UserButton: React.FC<UserButtonProps> = ({ user, className }) => {
-  // Handler for the logout action
+const UserButton: React.FC<UserButtonProps> = ({ className }) => {
+  const { user } = useSession();
+
   const handleLogout = async () => {
-    const toastId = toast.loading("Logging out..."); // Show loading toast
+    const toastId = toast.loading("Logging out...");
     try {
-      await logout(); // Call the server action
-      toast.success("Logged out successfully.", { id: toastId }); // Update toast on success
-      // Redirect is handled by the server action itself
+      await logout();
+      toast.success("Logged out successfully.", { id: toastId });
     } catch (error) {
       console.error("Logout error:", error);
-      toast.error("Logout failed. Please try again.", { id: toastId }); // Update toast on error
+      toast.error("Logout failed. Please try again.", { id: toastId });
     }
   };
 
-  // Helper function to generate initials from a name
   const getInitials = (name: string): string => {
-    if (!name) return "?"; // Handle cases where name might be empty
-
+    if (!name) return "?";
     return name
-      .split(" ") // Split name into parts
-      .map((n) => n?.[0] || "") // Get the first character of each part (handle potential empty parts)
-      .filter(Boolean) // Remove any empty strings from the map result
-      .slice(0, 2) // Optional: Limit to max 2 initials
-      .join("") // Join the characters
-      .toUpperCase(); // Convert to uppercase
+      .split(" ")
+      .map((n) => n?.[0] || "")
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
   };
 
-  // Fallback avatar if user.avatarUrl is null
-  const fallbackAvatar = "/assets/avatar-placeholder.png"; // Adjust path as necessary
+  if (!user) {
+    return null;
+  }
+
+  // --- Determine the correct src for AvatarImage ---
+  // If user has an avatarUrl, use it. Otherwise, use the .src property of the imported placeholder.
+  const avatarSrc =
+    user.avatarUrl || (avatarPlaceholder as StaticImageData).src; // <<< FIX HERE
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {/* The Button that triggers the dropdown */}
         <Button
           variant="ghost"
-          // Use cn to merge base classes with any className passed via props
           className={cn(
             "relative h-10 w-10 rounded-full focus-visible:ring-0 focus-visible:ring-offset-0",
             className,
-          )} // Adjusted size and removed focus ring for cleaner look maybe
+          )}
           aria-label="User menu"
         >
           <Avatar className="h-9 w-9">
-            {" "}
-            {/* Slightly smaller avatar for padding */}
+            {/* Use the determined avatarSrc */}
             <AvatarImage
-              src={user.avatarUrl || fallbackAvatar} // Use fallback if URL is null
+              src={avatarSrc} // <<< Use the corrected variable
               alt={user.displayName ?? user.username}
             />
             <AvatarFallback>
@@ -83,9 +83,7 @@ const UserButton: React.FC<UserButtonProps> = ({ user, className }) => {
         </Button>
       </DropdownMenuTrigger>
 
-      {/* The Content of the dropdown menu */}
       <DropdownMenuContent className="w-56" align="end" forceMount>
-        {/* Label showing user's name and email */}
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">
@@ -99,7 +97,6 @@ const UserButton: React.FC<UserButtonProps> = ({ user, className }) => {
 
         <DropdownMenuSeparator />
 
-        {/* Link to the Settings page */}
         <DropdownMenuItem asChild>
           <Link
             href="/manager/settings"
@@ -112,7 +109,6 @@ const UserButton: React.FC<UserButtonProps> = ({ user, className }) => {
 
         <DropdownMenuSeparator />
 
-        {/* Logout Button/Item */}
         <DropdownMenuItem
           onClick={handleLogout}
           className="cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50"

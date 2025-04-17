@@ -1,27 +1,23 @@
 // app/(manager)/_components/ManagerNavbar.tsx
 "use client";
 
-import UserButton from "./UserButton"; // Assuming this is the shared/styled button
-import { User } from "lucia";
+import UserButton from "./UserButton";
+// import { User } from "lucia"; // No longer needed
 
+// Remove user prop from interface
 interface ManagerNavbarProps {
-  user: User; // Receive user data
+  // No props needed now if UserButton uses session
 }
 
-const ManagerNavbar: React.FC<ManagerNavbarProps> = ({ user }) => {
-  // Note: AdminNavbar has a fixed height and a spacer div in the layout.
-  // We will replicate the visual style here.
+// Remove user prop from function signature
+const ManagerNavbar: React.FC<ManagerNavbarProps> = () => {
   return (
-    // Mimic AdminNavbar structure and styling
-    <nav className="fixed top-0 left-0 right-0 z-40 h-[88px] bg-neutral-900 text-white shadow-md border-b border-neutral-800"> {/* Use z-40 so sidebar toggle (z-50) is above */}
-      <div className="flex items-center justify-end h-full mx-auto w-full py-6 px-8"> {/* justify-end to push UserButton right */}
-         {/* Optional: Add Mobile Menu Toggle Button if needed */}
-         {/* <button className="md:hidden mr-4"> <Menu /> </button> */}
-
-         {/* Kept simple like Admin - Just User Button on the right */}
-         <div className="flex items-center space-x-6">
-            <UserButton user={user} className="text-lg" /> {/* Pass user prop */}
-         </div>
+    <nav className="fixed top-0 left-0 right-0 z-40 h-[88px] bg-neutral-900 text-white shadow-md border-b border-neutral-800">
+      <div className="flex items-center justify-end h-full mx-auto w-full py-6 px-8">
+        <div className="flex items-center space-x-6">
+          {/* Render UserButton WITHOUT the user prop */}
+          <UserButton className="text-lg" />
+        </div>
       </div>
     </nav>
   );

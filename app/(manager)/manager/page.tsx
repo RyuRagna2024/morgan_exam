@@ -1,4 +1,4 @@
-// app/(manager)/page.tsx
+// app/(manager)/manager/page.tsx
 import { validateRequest } from "@/auth"; // Optional: If you need user data here
 
 export default async function ManagerDashboardPage() {

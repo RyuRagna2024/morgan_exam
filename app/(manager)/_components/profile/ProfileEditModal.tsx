@@ -6,94 +6,65 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle, // <<< IMPORTED DialogTitle
+  DialogTitle,
+  DialogDescription, // Optional: if you want description
   DialogClose,
-} from "@/components/ui/dialog"; // Adjust path if needed
+} from "@/components/ui/dialog";
 import { SessionUser } from "../../SessionProvider";
-import AvatarUploadForm from "./AvatarUploadForm"; // Import the adapted form
-// import ProfileInfoForm from "./ProfileInfoForm"; // Placeholder for future form
+import AvatarUploadForm from "./AvatarUploadForm";
 
+// Simplify props: Only need user for initial URLs, open state, close handler, and the success callback
 interface ProfileEditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user: SessionUser | null; // Pass current user data
-  // Handlers passed from the page
-  onProfileInfoSubmit: (data: any) => Promise<void>; // Type 'any' for now, update when ProfileInfoForm is built
-  onImagesUploaded: (
+  user: SessionUser; // Expect non-null user when modal is open
+  onImagesUploaded: ( // Callback from ProfileSection
     newAvatarUrl: string | null,
     newBackgroundUrl: string | null,
-  ) => Promise<void>;
-  // Loading states passed from the page
-  isProfileUpdating: boolean;
+  ) => void; // Changed return to void as ProfileSection handles state
 }
 
 const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   isOpen,
   onClose,
   user,
-  onProfileInfoSubmit,
   onImagesUploaded,
-  isProfileUpdating, // This prop is for the ProfileInfoForm, not used directly here yet
 }) => {
-  // Don't render modal if user data isn't available yet or if not open
-  if (!user || !isOpen) return null;
+  // No need to check user/isOpen here, Dialog handles open state
+  // The parent component (ProfileSection) ensures user exists before rendering
 
-  // Handler to bridge the upload completion to the page's handler
-  const handleUploadComplete = async (
+  // Handler passed to AvatarUploadForm
+  const handleUploadComplete = (
     newAvatar: string | null,
     newBg: string | null,
   ) => {
-    await onImagesUploaded(newAvatar, newBg); // Call the handler passed from the settings page
-    // Closing logic is now handled within AvatarUploadForm or by the page's handler if needed
+    onImagesUploaded(newAvatar, newBg); // Call the handler passed from ProfileSection
+    // Closing is handled within AvatarUploadForm after success/toast
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        {/* Dialog Header with Title and Close button */}
+      <DialogContent className="sm:max-w-[450px]"> {/* Adjusted size slightly */}
         <DialogHeader>
-          <DialogTitle>Edit Profile</DialogTitle> {/* <<< ADDED DialogTitle */}
-          <DialogClose /> {/* Standard close button from shadcn/ui */}
+          <DialogTitle>Edit Images</DialogTitle>
+          <DialogDescription>
+             Update your profile picture and background image.
+          </DialogDescription>
+          {/* DialogClose is implicitly added by shadcn Dialog */}
         </DialogHeader>
 
-        {/* Image Upload Section */}
-        <div className="my-6">
-          {/* Render the form that handles both avatar and background */}
+        {/* Image Upload Section ONLY */}
+        <div className="mt-4 mb-6"> {/* Adjusted margin */}
           <AvatarUploadForm
             currentAvatarUrl={user.avatarUrl}
             currentBackgroundUrl={user.backgroundUrl}
-            onUploadComplete={handleUploadComplete} // Pass the combined handler
-            onCloseRequest={onClose} // Pass the main close handler so the form can trigger close
+            onUploadComplete={handleUploadComplete} // Pass the handler down
+            onCloseRequest={onClose} // Allow form to request close
           />
         </div>
 
-        {/* Separator between sections */}
-        <hr className="my-6 border-border" />
-
-        {/* Basic Profile Info Form Section (Placeholder) */}
-        <div>
-          <h3 className="text-lg font-medium mb-4 text-center">
-            Profile Details
-          </h3>
-          <p className="text-center text-muted-foreground text-sm">
-            {/* This is where the form for first name, last name, etc. will go */}
-            (Profile details form component will go here)
-          </p>
-          {/* TODO: Add and render the ProfileInfoForm component here */}
-          {/* Example:
-             <ProfileInfoForm
-                user={user} // Pass initial data
-                onSubmit={onProfileInfoSubmit} // Pass handler from page
-                isUpdating={isProfileUpdating} // Pass loading state from page
-             />
-          */}
-        </div>
-
-        {/* Dialog Footer might not be strictly needed if each form section has its own save/cancel */}
-        {/* <DialogFooter>
-             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-             {/* A main save button could go here if you have multiple forms saved at once }
-           </DialogFooter> */}
+        {/* Removed Profile Info Section and Separator */}
+        {/* Removed DialogFooter */}
       </DialogContent>
     </Dialog>
   );
