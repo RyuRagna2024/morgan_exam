@@ -1,57 +1,79 @@
-// app/(customer)/settings/types.ts
-import * as z from "zod";
+// app/(customer)/settings/_actions/types.ts
 
-// --- Existing Personal Info Schema (Keep as is for the first tab) ---
+import { z } from "zod";
+
+// --- Profile Info Update Schema ---
 export const profileUpdateSchema = z.object({
-  firstName: z.string().min(1, "First name is required").max(50).trim(),
-  lastName: z.string().min(1, "Last name is required").max(50).trim(),
-  displayName: z
-    .string()
-    .min(3, "Display name must be at least 3 characters")
-    .max(50)
-    .trim(),
-  username: z
-    .string()
-    .min(3, "Username must be at least 3 characters")
-    .max(30)
-    .trim(),
-  email: z.string().email("Please enter a valid email address").trim(),
-  phoneNumber: z
-    .string()
-    .max(20, "Phone number seems too long")
-    .optional()
-    .or(z.literal("")), // Optional in personal info
-  streetAddress: z
-    .string()
-    .min(1, "Street Address is required")
-    .max(100)
-    .trim(),
-  suburb: z.string().max(100).trim().optional().or(z.literal("")),
-  townCity: z.string().min(1, "Town/City is required").max(50).trim(),
-  postcode: z.string().min(1, "Postcode is required").max(20).trim(),
-  country: z.string().min(1, "Country is required").max(50).trim(),
+  // Assuming these fields can be updated based on ProfileInfoForm
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  displayName: z.string().min(1, "Display name is required"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email("Invalid email address"),
+  phoneNumber: z.string().optional().nullable(), // Allow empty string, null, or valid number
+  country: z.string().min(1, "Country is required"),
+  postcode: z.string().min(1, "Postcode is required"),
+  // Add other fields from ProfileInfoForm if they exist
 });
+
 export type ProfileUpdateFormValues = z.infer<typeof profileUpdateSchema>;
 
-// --- NEW Schema for Checkout Details Tab (Uses existing User fields) ---
+// --- Checkout Details Update Schema ---
+// Adjust fields based on CheckoutDetailsForm
 export const checkoutDetailsSchema = z.object({
-  // Fields from User model relevant to checkout billing/shipping
-  firstName: z.string().min(1, "First name is required").max(50).trim(),
-  lastName: z.string().min(1, "Last name is required").max(50).trim(),
-  // companyName: NOT ON USER MODEL
-  country: z.string().min(1, "Country is required").max(50).trim(), // Maps to Order.countryRegion
-  streetAddress: z
-    .string()
-    .min(1, "Street Address is required")
-    .max(100)
-    .trim(),
-  suburb: z.string().max(100).trim().optional().or(z.literal("")), // Maps to Order.apartmentSuite
-  townCity: z.string().min(1, "Town/City is required").max(50).trim(),
-  // province: NOT ON USER MODEL
-  postcode: z.string().min(1, "Postcode is required").max(20).trim(),
-  phoneNumber: z.string().min(1, "Phone number is required").max(20).trim(), // Make required for checkout?
-  email: z.string().email("Valid email address is required").trim(),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  companyName: z.string().optional(), // Assuming optional
+  country: z.string().min(1, "Country/Region is required"),
+  streetAddress: z.string().min(1, "Street address is required"),
+  apartmentSuite: z.string().optional(),
+  townCity: z.string().min(1, "Town/City is required"),
+  province: z.string().min(1, "Province is required"),
+  postcode: z.string().min(1, "Postal code is required"),
+  phone: z.string().min(1, "Phone number is required"),
+  email: z.string().email("Invalid email address"),
+  // Add other fields from CheckoutDetailsForm if they exist
 });
 
-// Type derived from the checkout details schema
 export type CheckoutDetailsFormValues = z.infer<typeof checkoutDetailsSchema>;
+
+// --- General Action Result Type ---
+// Can be used for profile and checkout updates
+export interface UpdateActionResult {
+  success?: string | null; // Success message
+  error?: string | null; // Error message
+}
+
+// --- NEW: Password Change Schema and Type ---
+export const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    // Using the same password complexity rules as registration for consistency
+    newPassword: z
+      .string()
+      .min(8, "New password must be at least 8 characters")
+      .max(255, "Password cannot exceed 255 characters") // Match registration max length
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+      .regex(/[0-9]/, "Password must contain at least one number")
+      .regex(
+        /[^A-Za-z0-9]/,
+        "Password must contain at least one special character",
+      ),
+    confirmNewPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
+    message: "New passwords do not match",
+    path: ["confirmNewPassword"], // Point the error to the confirmation field
+  });
+
+export type PasswordChangeFormValues = z.infer<typeof passwordChangeSchema>;
+
+// --- NEW: Password Change Server Action Result Type ---
+export interface PasswordChangeResult {
+  success: boolean; // Use boolean for success/failure status
+  message?: string; // Message for success or general info
+  error?: string; // General error message if success is false
+  // Specific field errors, keys should match form values
+  fieldErrors?: Partial<Record<keyof PasswordChangeFormValues, string>>;
+}

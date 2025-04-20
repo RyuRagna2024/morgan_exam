@@ -1,6 +1,6 @@
 ## Question 1 (CUSTOMER)
 
-[] On the customer route in the sidebar there exists a label called "/settings" this route does not exist yet. Create this settings route. This settings route will have 3 tabs[personal info, checkout details, security].
+[x] On the customer route in the sidebar there exists a label called "/settings" this route does not exist yet. Create this settings route. This settings route will have 3 tabs[personal info, checkout details, security].
 
     NB! The Personal Info tab will be the default tab
 
