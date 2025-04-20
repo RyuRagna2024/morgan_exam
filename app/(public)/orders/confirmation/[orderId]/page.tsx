@@ -1,3 +1,5 @@
+// app/(public)/orders/confirmation/[orderId]/page.tsx
+
 import React from "react";
 import OrderConfirmation from "./OrderConfirmation";
 

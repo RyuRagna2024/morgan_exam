@@ -1,3 +1,5 @@
+// app/(public)/checkout/page.tsx
+
 import React from "react";
 import Checkout from "./CheckoutPage";
 
