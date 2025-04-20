@@ -1,3 +1,5 @@
+// app/(public)/_components/(navbar_group)/TierBadge.tsx
+
 "use client";
 
 import React from "react";

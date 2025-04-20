@@ -1,4 +1,5 @@
-// wishlist-store.ts
+// // app/(public)/(group-products)/_components/_store/wishlist-store.ts
+
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 import { Variation } from "../(filterside)/types";

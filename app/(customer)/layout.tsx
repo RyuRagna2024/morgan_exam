@@ -2,15 +2,14 @@
 import { validateRequest } from "@/auth";
 import { redirect } from "next/navigation";
 // Import SessionProvider AND SessionUser type from THIS directory's provider
-import SessionProvider, { SessionUser } from "./SessionProvider";
-import { Toaster } from "react-hot-toast"; // Using react-hot-toast as per original
-import { UserRole as PrismaUserRole } from "@prisma/client"; // Use alias for Prisma enum
-import Navbar from "./_components/Navbar"; // Assuming Navbar is specific to customer
-import CustomerSidebar from "./_components/CustomerSidebar"; // Import CustomerSidebar
-import { getCustomerOrderCount } from "./_components/(sidebar)/_profile-actions/count-orders"; // Adjust path if needed
-import { getCustomerWishlistCount } from "./_components/(sidebar)/_profile-actions/count-wishlist"; // Adjust path if needed
+import SessionProvider, { SessionUser } from "./SessionProvider"; // <<< Uses ./SessionProvider
+import { Toaster } from "react-hot-toast";
+import { UserRole as PrismaUserRole, Tier as PrismaTier } from "@prisma/client"; // Use alias for Prisma enums
+import Navbar from "./_components/Navbar";
+import CustomerSidebar from "./_components/CustomerSidebar";
+import { getCustomerOrderCount } from "./_components/(sidebar)/_profile-actions/count-orders";
+import { getCustomerWishlistCount } from "./_components/(sidebar)/_profile-actions/count-wishlist";
 
-// Recommended for pages fetching dynamic data
 export const dynamic = "force-dynamic";
 
 export default async function CustomerLayout({
@@ -19,15 +18,15 @@ export default async function CustomerLayout({
   children: React.ReactNode;
 }) {
   // Fetch full user data and session from auth
+  // Assuming validateRequest returns the full user object including tier
   const { user: fullUser, session } = await validateRequest();
 
   // Authentication and Authorization check
   if (!fullUser || !session || fullUser.role !== PrismaUserRole.CUSTOMER) {
-    // Redirect if not logged in or not a customer
-    return redirect("/"); // Redirect to home or login page
+    return redirect("/");
   }
 
-  // --- Create the client-safe SessionUser object ---
+  // --- Create the client-safe SessionUser object INCLUDING TIER ---
   const sessionUser: SessionUser = {
     id: fullUser.id,
     username: fullUser.username,
@@ -37,9 +36,12 @@ export default async function CustomerLayout({
     email: fullUser.email,
     postcode: fullUser.postcode,
     country: fullUser.country,
-    avatarUrl: fullUser.avatarUrl,
-    backgroundUrl: fullUser.backgroundUrl,
+    avatarUrl: fullUser.avatarUrl ?? null,
+    backgroundUrl: fullUser.backgroundUrl ?? null,
+    // Cast role, ensure SessionUser['role'] includes all PrismaUserRole values if needed
     role: fullUser.role as SessionUser["role"],
+    tier: fullUser.tier, // <<< ADDED tier field (Type should match SessionUser.tier -> PrismaTier)
+    phoneNumber: fullUser.phoneNumber ?? null, // Add phone if needed by SessionUser
   };
 
   // Fetch order and wishlist counts
@@ -54,17 +56,15 @@ export default async function CustomerLayout({
     ? wishlistCountResponse.wishlistItemCount || 0
     : 0;
 
-  // --- !!! IMPORTANT: Determine Navbar Height !!! ---
-  // Inspect your Customer Navbar component in the browser dev tools
-  // Replace these example values with the ACTUAL computed height in pixels
   const navbarHeightDesktop = 88; // Example: Replace with actual desktop height
-  const navbarHeightMobile = 88; // Example: Replace with actual mobile height (might be different)
+  const navbarHeightMobile = 88; // Example: Replace with actual mobile height
 
   return (
+    // Use the Customer SessionProvider from this directory
     <SessionProvider value={{ user: sessionUser, session: session }}>
       <Toaster
         position="top-center"
-        containerStyle={{ top: navbarHeightDesktop + 16 }} // Position below desktop navbar
+        containerStyle={{ top: navbarHeightDesktop + 16 }}
         toastOptions={
           {
             /* ... your options ... */
@@ -75,13 +75,11 @@ export default async function CustomerLayout({
       <div className="flex flex-col min-h-screen">
         {/* Fixed Navbar Wrapper */}
         <div className="fixed top-0 left-0 right-0 z-50">
-          <Navbar />
+          <Navbar /> {/* This Navbar will use the Customer SessionProvider */}
         </div>
 
-        {/* --- SPACER DIVs using Tailwind arbitrary values --- */}
-        {/* Spacer for mobile */}
+        {/* Spacers */}
         <div className={`block md:hidden h-[${navbarHeightMobile}px]`} />
-        {/* Spacer for desktop */}
         <div className={`hidden md:block h-[${navbarHeightDesktop}px]`} />
 
         {/* Container for Sidebar + Main Content */}
@@ -89,7 +87,7 @@ export default async function CustomerLayout({
           {/* Sidebar */}
           <div className="hidden md:flex h-full">
             <CustomerSidebar
-              user={sessionUser}
+              user={sessionUser} // Pass the user data with tier
               orderCount={orderCount}
               wishlistCount={wishlistCount}
             />

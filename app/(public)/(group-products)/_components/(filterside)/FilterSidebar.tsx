@@ -1,3 +1,5 @@
+// app/(public)/(group-products)/_components/(filterside)/FilterSidebar.tsx
+
 "use client";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -16,20 +18,21 @@ const FilterSidebar = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   // Get all products for generating available options
-  const allProducts = useProductStore(state => state.allProducts);
-  
+  const allProducts = useProductStore((state) => state.allProducts);
+
   // Get products and category information from our custom hook
-  const { 
-    products, 
-    activeCategory 
-  } = useProductsByPathname();
-  
+  const { products, activeCategory } = useProductsByPathname();
+
   // Access filter setters from the Zustand store
-  const setCategoryFilter = useProductStore(state => state.setCategoryFilter);
-  const setPriceRangeFilter = useProductStore(state => state.setPriceRangeFilter);
-  const setStockStatusFilter = useProductStore(state => state.setStockStatusFilter);
-  const setColorFilters = useProductStore(state => state.setColorFilters);
-  const setSizeFilters = useProductStore(state => state.setSizeFilters); // Updated to use setSizeFilters
+  const setCategoryFilter = useProductStore((state) => state.setCategoryFilter);
+  const setPriceRangeFilter = useProductStore(
+    (state) => state.setPriceRangeFilter,
+  );
+  const setStockStatusFilter = useProductStore(
+    (state) => state.setStockStatusFilter,
+  );
+  const setColorFilters = useProductStore((state) => state.setColorFilters);
+  const setSizeFilters = useProductStore((state) => state.setSizeFilters); // Updated to use setSizeFilters
 
   // Initialize selected filters
   const [selectedFilters, setSelectedFilters] = useState<SelectedFilters>({
@@ -47,75 +50,76 @@ const FilterSidebar = () => {
       { name: "Headwear", value: "headwear" },
       { name: "All Collections", value: "all-collections" },
     ],
-    []
+    [],
   );
-  
+
   // Dynamically get available colors from ALL products
   const availableColors = useMemo(() => {
     const colorSet = new Set<string>();
-    
+
     if (allProducts && allProducts.length > 0) {
-      allProducts.forEach(product => {
-        product.variations?.forEach(variation => {
+      allProducts.forEach((product) => {
+        product.variations?.forEach((variation) => {
           if (variation.color) {
-            colorSet.add(variation.color.charAt(0).toUpperCase() + variation.color.slice(1).toLowerCase());
+            colorSet.add(
+              variation.color.charAt(0).toUpperCase() +
+                variation.color.slice(1).toLowerCase(),
+            );
           }
         });
       });
     }
-    
+
     return Array.from(colorSet).sort();
   }, [allProducts]);
-  
+
   // Dynamically get available sizes from ALL products, not just filtered ones
   const availableSizes = useMemo(() => {
     const sizeSet = new Set<string>();
-    
+
     if (allProducts && allProducts.length > 0) {
-      allProducts.forEach(product => {
-        product.variations?.forEach(variation => {
+      allProducts.forEach((product) => {
+        product.variations?.forEach((variation) => {
           if (variation.size) {
             sizeSet.add(variation.size);
           }
         });
       });
     }
-    
+
     return Array.from(sizeSet).sort();
   }, [allProducts]); // Changed dependency to allProducts
-  
+
   // Generate price ranges based on products in ZAR
   const availablePriceRanges = useMemo(() => {
-    return [
-      "Under R500", 
-      "R500-R1000", 
-      "R1000-R2000", 
-      "Over R2000"
-    ];
+    return ["Under R500", "R500-R1000", "R1000-R2000", "Over R2000"];
   }, []);
 
   // Generate filters object with dynamic data
-  const filters = useMemo(() => ({
-    Category: categories.map((cat) => cat.name),
-    "Stock Level": ["In Stock", "Out of Stock", "Low Stock"],
-    Color: availableColors,
-    "Price Range": availablePriceRanges,
-    Size: availableSizes,
-  }), [categories, availableColors, availablePriceRanges, availableSizes]);
+  const filters = useMemo(
+    () => ({
+      Category: categories.map((cat) => cat.name),
+      "Stock Level": ["In Stock", "Out of Stock", "Low Stock"],
+      Color: availableColors,
+      "Price Range": availablePriceRanges,
+      Size: availableSizes,
+    }),
+    [categories, availableColors, availablePriceRanges, availableSizes],
+  );
 
   // Update selected category based on pathname
   useEffect(() => {
     if (!pathname) return;
-    
+
     const pathSegments = pathname.split("/").filter(Boolean);
     const lastSegment = pathSegments[pathSegments.length - 1];
 
     const matchedCategory = categories.find(
-      (cat) => lastSegment.toLowerCase() === cat.value
+      (cat) => lastSegment.toLowerCase() === cat.value,
     );
 
     if (matchedCategory) {
-      setSelectedFilters(prev => ({
+      setSelectedFilters((prev) => ({
         ...prev,
         Category: [matchedCategory.name],
       }));
@@ -125,7 +129,7 @@ const FilterSidebar = () => {
 
   // Convert price range label to actual min/max values
   const getPriceRangeValues = useCallback((label: string) => {
-    switch(label) {
+    switch (label) {
       case "Under R500":
         return { min: 0, max: 500 };
       case "R500-R1000":
@@ -140,39 +144,44 @@ const FilterSidebar = () => {
   }, []);
 
   const toggleDropdown = useCallback((dropdownName: string) => {
-    setOpenDropdown(prev => prev === dropdownName ? null : dropdownName);
+    setOpenDropdown((prev) => (prev === dropdownName ? null : dropdownName));
   }, []);
 
-  const handleFilterChange = useCallback((category: string, value: string) => {
-    setSelectedFilters(prev => {
-      const updatedFilters = { ...prev };
+  const handleFilterChange = useCallback(
+    (category: string, value: string) => {
+      setSelectedFilters((prev) => {
+        const updatedFilters = { ...prev };
 
-      // Handle Category specially (exclusive selection)
-      if (category === "Category") {
-        if (updatedFilters[category].includes(value)) {
-          updatedFilters[category] = [];
+        // Handle Category specially (exclusive selection)
+        if (category === "Category") {
+          if (updatedFilters[category].includes(value)) {
+            updatedFilters[category] = [];
+          } else {
+            updatedFilters[category] = [value];
+            // Find the matching route value and navigate
+            const matchedCategory = categories.find(
+              (cat) => cat.name === value,
+            );
+            if (matchedCategory) {
+              router.push(`/${matchedCategory.value}`);
+            }
+          }
         } else {
-          updatedFilters[category] = [value];
-          // Find the matching route value and navigate
-          const matchedCategory = categories.find((cat) => cat.name === value);
-          if (matchedCategory) {
-            router.push(`/${matchedCategory.value}`);
+          // For other filters, toggle selection (allow multiple)
+          if (updatedFilters[category].includes(value)) {
+            updatedFilters[category] = updatedFilters[category].filter(
+              (item) => item !== value,
+            );
+          } else {
+            updatedFilters[category] = [...updatedFilters[category], value];
           }
         }
-      } else {
-        // For other filters, toggle selection (allow multiple)
-        if (updatedFilters[category].includes(value)) {
-          updatedFilters[category] = updatedFilters[category].filter(
-            (item) => item !== value
-          );
-        } else {
-          updatedFilters[category] = [...updatedFilters[category], value];
-        }
-      }
 
-      return updatedFilters;
-    });
-  }, [categories, router]);
+        return updatedFilters;
+      });
+    },
+    [categories, router],
+  );
 
   // Apply filters to store when selections change
   const selectedPriceRanges = selectedFilters["Price Range"];
@@ -188,7 +197,7 @@ const FilterSidebar = () => {
         setPriceRangeFilter({
           min: priceRangeValues.min,
           max: priceRangeValues.max,
-          label: selectedPriceRanges[0]
+          label: selectedPriceRanges[0],
         });
       }
     } else {
@@ -197,7 +206,7 @@ const FilterSidebar = () => {
 
     // Apply stock status filter
     if (selectedStockLevels && selectedStockLevels.length > 0) {
-      const status = selectedStockLevels[0].toLowerCase().replace(/\s+/g, '-');
+      const status = selectedStockLevels[0].toLowerCase().replace(/\s+/g, "-");
       setStockStatusFilter(status as any);
     } else {
       setStockStatusFilter("all");
@@ -205,11 +214,11 @@ const FilterSidebar = () => {
 
     // Apply color filters
     if (selectedColors && selectedColors.length > 0) {
-      setColorFilters(selectedColors.map(color => color.toLowerCase()));
+      setColorFilters(selectedColors.map((color) => color.toLowerCase()));
     } else {
       setColorFilters([]);
     }
-    
+
     // Apply size filters - updated to support multiple sizes
     if (selectedSizes && selectedSizes.length > 0) {
       setSizeFilters(selectedSizes);
@@ -225,111 +234,118 @@ const FilterSidebar = () => {
     setPriceRangeFilter,
     setStockStatusFilter,
     setColorFilters,
-    setSizeFilters
+    setSizeFilters,
   ]);
 
   const clearFilters = useCallback(() => {
     // Keep Category but clear other filters
-    setSelectedFilters(prev => ({
+    setSelectedFilters((prev) => ({
       Category: prev.Category,
       "Stock Level": [],
       Color: [],
       "Price Range": [],
-      Size: []
+      Size: [],
     }));
   }, []);
 
   // Check if there are any active filters (excluding Category)
   const hasActiveFilters = Object.entries(selectedFilters).some(
-    ([category, filters]) => category !== "Category" && filters.length > 0
+    ([category, filters]) => category !== "Category" && filters.length > 0,
   );
 
-  const FilterSection = useCallback(({
-    title,
-    options,
-  }: {
-    title: string;
-    options: string[];
-  }) => (
-    <div className="border-b border-gray-200 last:border-b-0">
-      <button
-        onClick={() => toggleDropdown(title)}
-        className="flex justify-between items-center w-full py-3 px-4 text-left hover:bg-gray-50 transition-colors"
-      >
-        <span className="font-medium text-gray-900">{title}</span>
-        {openDropdown === title ? (
-          <ChevronUp className="h-4 w-4 text-gray-500" />
-        ) : (
-          <ChevronDown className="h-4 w-4 text-gray-500" />
-        )}
-      </button>
-
-      {openDropdown === title && (
-        <div className="px-4 pb-3 space-y-2">
-          {options.length > 0 ? (
-            options.map((option) => (
-              <label key={option} className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={selectedFilters[title].includes(option)}
-                  onChange={() => handleFilterChange(title, option)}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="ml-3 text-sm text-gray-600">{option}</span>
-              </label>
-            ))
+  const FilterSection = useCallback(
+    ({ title, options }: { title: string; options: string[] }) => (
+      <div className="border-b border-gray-200 last:border-b-0">
+        <button
+          onClick={() => toggleDropdown(title)}
+          className="flex justify-between items-center w-full py-3 px-4 text-left hover:bg-gray-50 transition-colors"
+        >
+          <span className="font-medium text-gray-900">{title}</span>
+          {openDropdown === title ? (
+            <ChevronUp className="h-4 w-4 text-gray-500" />
           ) : (
-            <div className="text-sm text-gray-500">No options available</div>
+            <ChevronDown className="h-4 w-4 text-gray-500" />
           )}
-        </div>
-      )}
-    </div>
-  ), [openDropdown, selectedFilters, toggleDropdown, handleFilterChange]);
+        </button>
 
-  const SidebarContent = useCallback(() => (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="text-sm font-medium text-white hover:text-white bg-red-500 p-3 rounded-md"
-            >
-              Clear all
-            </button>
-          )}
-        </div>
-        {hasActiveFilters && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {Object.entries(selectedFilters)
-              .filter(([category]) => category !== "Category")
-              .map(([category, values]) =>
-                values.map((value) => (
-                  <span
-                    key={`${category}-${value}`}
-                    className="inline-flex items-center px-2 py-1 rounded-md text-sm bg-gray-100 text-gray-700"
-                  >
-                    {value}
-                    <button
-                      onClick={() => handleFilterChange(category, value)}
-                      className="ml-1 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))
-              )}
+        {openDropdown === title && (
+          <div className="px-4 pb-3 space-y-2">
+            {options.length > 0 ? (
+              options.map((option) => (
+                <label key={option} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedFilters[title].includes(option)}
+                    onChange={() => handleFilterChange(title, option)}
+                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-3 text-sm text-gray-600">{option}</span>
+                </label>
+              ))
+            ) : (
+              <div className="text-sm text-gray-500">No options available</div>
+            )}
           </div>
         )}
       </div>
-      <div className="divide-y divide-gray-200">
-        {Object.entries(filters).map(([title, options]) => (
-          <FilterSection key={title} title={title} options={options} />
-        ))}
+    ),
+    [openDropdown, selectedFilters, toggleDropdown, handleFilterChange],
+  );
+
+  const SidebarContent = useCallback(
+    () => (
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="text-sm font-medium text-white hover:text-white bg-red-500 p-3 rounded-md"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          {hasActiveFilters && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {Object.entries(selectedFilters)
+                .filter(([category]) => category !== "Category")
+                .map(([category, values]) =>
+                  values.map((value) => (
+                    <span
+                      key={`${category}-${value}`}
+                      className="inline-flex items-center px-2 py-1 rounded-md text-sm bg-gray-100 text-gray-700"
+                    >
+                      {value}
+                      <button
+                        onClick={() => handleFilterChange(category, value)}
+                        className="ml-1 text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )),
+                )}
+            </div>
+          )}
+        </div>
+        <div className="divide-y divide-gray-200">
+          {Object.entries(filters).map(([title, options]) => (
+            <FilterSection key={title} title={title} options={options} />
+          ))}
+        </div>
       </div>
-    </div>
-  ), [FilterSection, clearFilters, filters, handleFilterChange, hasActiveFilters, selectedFilters]);
+    ),
+    [
+      FilterSection,
+      clearFilters,
+      filters,
+      handleFilterChange,
+      hasActiveFilters,
+      selectedFilters,
+    ],
+  );
 
   return (
     <>

@@ -3,9 +3,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Session as LuciaSession } from "lucia";
+import { Tier } from "@prisma/client"; // Import the Tier enum from Prisma client
 
 // --- Define UserRole INCLUDING ALL ROLES from Prisma ---
-// Make sure this includes every role defined in your prisma schema
 export type UserRole =
   | "USER"
   | "CUSTOMER"
@@ -13,21 +13,21 @@ export type UserRole =
   | "EDITOR"
   | "ADMIN"
   | "SUPERADMIN"
-  | "MANAGER"; // <<< Ensure MANAGER and all others are here
+  | "MANAGER";
 
-// Define the SessionUser type for the ROOT context
-// Include fields commonly needed across the entire app *before* specific layouts
-// This might be a minimal set compared to customer/manager providers
+// --- ** ADD Tier field TO SessionUser INTERFACE ** ---
 export interface SessionUser {
   id: string;
   // username?: string; // Optional, include if needed globally
-  displayName: string; // Usually needed for display
+  displayName: string;
   // email?: string;    // Optional
-  avatarUrl: string | null; // Often needed for navbars
+  avatarUrl: string | null;
   // backgroundUrl?: string | null; // Less likely needed globally
-  role: UserRole; // <<< Use the comprehensive UserRole defined above
+  role: UserRole;
+  tier: Tier; // <<< ADDED the tier field here, using the Prisma enum type
   // Add other *globally* needed fields
 }
+// --- ** END OF CHANGE ** ---
 
 // Extend Lucia's Session type for the ROOT context
 export interface SessionWithUser extends LuciaSession {
@@ -35,8 +35,6 @@ export interface SessionWithUser extends LuciaSession {
 }
 
 // Define the type for allowed updates IN THE ROOT context (likely none or minimal)
-// For the root provider, you might not need an update function, or it might be empty/limited.
-// If you don't need client-side updates triggered from the root context, simplify this.
 type RootProfileUpdates = Partial<
   Pick<SessionUser, "avatarUrl" /* add others if needed */>
 >;
@@ -45,7 +43,7 @@ type RootProfileUpdates = Partial<
 interface SessionContext {
   user: SessionUser | null;
   session: SessionWithUser | null;
-  // updateProfile: (updates: RootProfileUpdates) => void; // Optional: uncomment if root updates needed
+  // updateProfile: (updates: RootProfileUpdates) => void; // Optional
 }
 
 const SessionContext = createContext<SessionContext | null>(null);
@@ -57,29 +55,28 @@ export default function SessionProvider({
   children: React.ReactNode;
   // Expect the SessionUser type defined *in this file*
   value: {
+    // Ensure the value passed in conforms to the updated SessionUser
     user: SessionUser | null;
     session: LuciaSession | null;
   };
 }) {
+  // State now uses the updated SessionUser type
   const [userData, setUserData] = useState<SessionUser | null>(value.user);
 
   useEffect(() => {
+    // Ensure the incoming value.user conforms to the updated SessionUser type
     setUserData(value.user);
   }, [value.user]);
 
   // Optional: Define updateProfile if needed for root context
-  // const updateProfile = (updates: RootProfileUpdates) => {
-  //   setUserData((prevUser) => {
-  //     if (!prevUser) return null;
-  //     return { ...prevUser, ...updates };
-  //   });
-  // };
+  // const updateProfile = (updates: RootProfileUpdates) => { ... }
 
   const sessionValue: SessionContext = {
     user: userData,
+    // Ensure the session object merges correctly with the updated userData
     session:
       value.session && userData ? { ...value.session, user: userData } : null,
-    // updateProfile, // Optional: uncomment if using updateProfile
+    // updateProfile, // Optional
   };
 
   return (

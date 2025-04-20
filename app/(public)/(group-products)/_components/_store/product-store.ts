@@ -1,4 +1,5 @@
-// productStore.ts
+// app/(public)/(group-products)/_components/_store/productStore.ts
+
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 import {

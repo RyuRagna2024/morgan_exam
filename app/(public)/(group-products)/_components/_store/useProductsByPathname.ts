@@ -1,4 +1,5 @@
-// useProductsByPathname.ts
+// // app/(public)/(group-products)/_components/_store/useProductsByPathname.ts
+
 import { usePathname } from "next/navigation";
 import { useProductStore } from "./product-store";
 import { ProductWithVariations, Variation } from "../(filterside)/types";
