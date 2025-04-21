@@ -15,7 +15,7 @@
 
 ## Question 2 (EDITOR)
 
-[] On the Home page there is 3 tabs. New arrivals, best sellers and on sale. The create modal for the slider on the tabs already exist and is called emptyslot in other words this is a modal with an empty form. Now on each card in the tabs, each card must have there own pencil icon and there own trash bin.
+[x] On the Home page there is 3 tabs. New arrivals, best sellers and on sale. The create modal for the slider on the tabs already exist and is called emptyslot in other words this is a modal with an empty form. Now on each card in the tabs, each card must have there own pencil icon and there own trash bin.
 
 1. When the pencil is clicked then a modal must open that has a form with the pre populated data of that particular unique id. On this model the editor will be able to update this id's payload(data).
 
@@ -23,9 +23,9 @@
 
    Below this question must be two buttons. [cancel] [delete].
 
-[] For the my dashboard button in the navbar, the button must navigate to the route based oin the users role. for example. if the session user is an editor then it must go tho the editors dashboard. if its a customer then the customer must be re directed to the custome dashboard. This dashboard button will be setup for routing only for an editor a customer session.
+[x] For the my dashboard button in the navbar, the button must navigate to the route based oin the users role. for example. if the session user is an editor then it must go tho the editors dashboard. if its a customer then the customer must be re directed to the custome dashboard. This dashboard button will be setup for routing only for an editor a customer session.
 
-[] After setting up the my dashboard button routing you will discover that the editor route doesn't exist yet. Setup the editor route just with a navbar that has the userbutton to allow the editor to log out of their dashboard.
+[x] After setting up the my dashboard button routing you will discover that the editor route doesn't exist yet. Setup the editor route just with a navbar that has the userbutton to allow the editor to log out of their dashboard.
 
 [] For the Headwear, Apparel and All Collections route you will have to create a empty slot at the top of the product cards and the filter sidebar that allows an editor to upload a banner for each collection.
 
