@@ -1,26 +1,33 @@
+// app/(public)/_components/(navbar_group)/Navbar.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { ShoppingCart } from "lucide-react";
 import { useSession } from "@/app/SessionProvider";
 import UserButton from "../UserButton";
+import TierBadge from "./TierBadge";
+import { Button } from "@/components/ui/button";
+import { UserRole } from "@prisma/client";
+import { usePathname, useRouter } from "next/navigation"; // Added useRouter
+import { useState, useEffect, useRef } from "react";
+
+// Assuming these imports are correct based on your structure
 import Cart from "./(cart)/Cart";
-import MobileMenu from "./MobileMenu";
+import MobileMenu from "./MobileMenu"; // Import MobileMenu
 import { MenuIcon, CartIcon } from "./NavIcons";
 import { getRoutes } from "./routes";
 import AuthModal from "@/app/(auth)/_components/AuthTabs";
 import { useCart } from "../../productId/cart/_store/use-cart-store-hooks";
-import { usePathname } from "next/navigation";
-import TierBadge from "./TierBadge"; // Import the TierBadge component
 
-export default function Navbar() {
+const Navbar = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const { user } = useSession();
-  const { itemCount } = useCart();
+  const { itemCount } = useCart(); // Assuming this provides a number
 
   const mobileMenuRef = useRef<HTMLDivElement | null>(null);
   const cartMenuRef = useRef<HTMLDivElement | null>(null);
@@ -28,37 +35,24 @@ export default function Navbar() {
   const cartButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
-
+    // ... scroll and click outside handlers ...
+    const handleScroll = () => setScrolled(window.scrollY > 50);
     const handleClickOutside = (event: MouseEvent) => {
-      // Close mobile menu if clicking outside
       if (
         mobileMenuOpen &&
-        mobileMenuRef.current &&
-        !mobileMenuRef.current.contains(event.target as Node) &&
-        mobileMenuButtonRef.current &&
-        !mobileMenuButtonRef.current.contains(event.target as Node)
-      ) {
+        !mobileMenuRef.current?.contains(event.target as Node) &&
+        !mobileMenuButtonRef.current?.contains(event.target as Node)
+      )
         setMobileMenuOpen(false);
-      }
-
-      // Close cart menu if clicking outside
       if (
         cartOpen &&
-        cartMenuRef.current &&
-        !cartMenuRef.current.contains(event.target as Node) &&
-        cartButtonRef.current &&
-        !cartButtonRef.current.contains(event.target as Node)
-      ) {
+        !cartMenuRef.current?.contains(event.target as Node) &&
+        !cartButtonRef.current?.contains(event.target as Node)
+      )
         setCartOpen(false);
-      }
     };
-
     window.addEventListener("scroll", handleScroll);
     document.addEventListener("mousedown", handleClickOutside);
-
     return () => {
       window.removeEventListener("scroll", handleScroll);
       document.removeEventListener("mousedown", handleClickOutside);
@@ -66,31 +60,55 @@ export default function Navbar() {
   }, [mobileMenuOpen, cartOpen]);
 
   // Get routes based on user authentication status
-  const routes = getRoutes(!!user);
+  const routes = getRoutes(!!user); // Assuming this returns the correct route objects
 
-  // This function handles dashboard navigation with a hard refresh
+  // Determine Dashboard Path
+  // --- Initialize dashboardPath as undefined ---
+  let dashboardPath: string | undefined = undefined; // Use undefined instead of null
+  let showDashboardLink = false;
+  // --- End Initialization Change ---
+
+  if (user) {
+    showDashboardLink = true; // Assume we show it unless specified otherwise
+    switch (user.role) {
+      case UserRole.EDITOR:
+        dashboardPath = "/editor";
+        break;
+      case UserRole.CUSTOMER:
+      case UserRole.PROCUSTOMER:
+        dashboardPath = "/customer";
+        break;
+      case UserRole.MANAGER:
+        dashboardPath = "/manager";
+        break;
+      case UserRole.ADMIN:
+        dashboardPath = "/admin";
+        break;
+      case UserRole.SUPERADMIN:
+        dashboardPath = "/super-admin";
+        break;
+      case UserRole.USER:
+      default:
+        // Don't assign dashboardPath, leave it undefined
+        showDashboardLink = false;
+        break;
+    }
+  } else {
+    showDashboardLink = false; // Also hide if not logged in
+  }
+
+  // Click handler for dashboard link (optional, Link might be enough)
   const handleDashboardClick = (e: React.MouseEvent) => {
     e.preventDefault();
-
-    // Check if we're already on the dashboard page
-    if (pathname === "/customer") {
-      // If already on dashboard, perform a hard window reload
-      window.location.reload();
-    } else {
-      // If coming from a different page, navigate to dashboard with hard navigation
-      window.location.href = "/customer";
+    if (dashboardPath) {
+      router.push(dashboardPath);
     }
   };
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-gradient-to-b from-gray-900 to-black shadow-lg border-b border-red-700"
-          : "bg-gradient-to-b from-gray-900 to-black"
-      }`}
-    >
+    <header /* ... className ... */>
       <nav className="container mx-auto px-7 flex items-center justify-between h-20">
+        {/* Logo */}
         <Link href="/" className="flex items-center">
           <Image
             src="/logo_gh.png"
@@ -103,59 +121,60 @@ export default function Navbar() {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-4">
-          {routes.map((route) =>
-            route.name === "My Dashboard" ? (
-              <a
-                key={route.path}
-                href="/customer"
-                onClick={handleDashboardClick}
-                className="px-4 py-2 rounded-md text-gray-300 transition-all duration-300 
-                  hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-red-700 
-                  hover:scale-105 font-medium"
-              >
-                {route.name}
-              </a>
-            ) : (
+          {routes.map((route) => {
+            if (route.name === "My Dashboard") {
+              // Only render if showDashboardLink is true and dashboardPath is a string
+              return showDashboardLink && dashboardPath ? (
+                <Link // Use Link directly here for consistency
+                  key={route.path}
+                  href={dashboardPath}
+                  className="px-4 py-2 rounded-md text-gray-300 transition-all duration-300 hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-red-700 hover:scale-105 font-medium"
+                >
+                  {route.name}
+                </Link>
+              ) : null; // Render nothing if link shouldn't be shown
+            }
+            // Render other routes
+            return (
               <Link
                 key={route.path}
                 href={route.path}
-                className="px-4 py-2 rounded-md text-gray-300 transition-all duration-300 
-                  hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-red-700 
-                  hover:scale-105 font-medium"
+                className="px-4 py-2 rounded-md text-gray-300 transition-all duration-300 hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-red-700 hover:scale-105 font-medium"
               >
                 {route.name}
               </Link>
-            ),
-          )}
-
-          {/* Cart Icon for logged-in users - Desktop */}
-          {user && (
-            <div className="relative">
-              <button
-                ref={cartButtonRef}
-                onClick={() => setCartOpen(!cartOpen)}
-                className="ml-2 p-2 rounded-md text-gray-300 hover:text-white hover:bg-red-600/20"
-                aria-label={`Open cart containing ${itemCount} items`}
-              >
-                <CartIcon />
-                {itemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                    {itemCount > 99 ? "99+" : itemCount}
-                  </span>
-                )}
-                <span className="sr-only">Open cart</span>
-              </button>
-            </div>
-          )}
-
-          {/* Auth Button with Tier Badge */}
-          <div className="ml-2 text-gray-300 flex items-center gap-2">
+            );
+          })}
+          {/* Cart Icon */}
+          {user &&
+            (user.role === UserRole.CUSTOMER ||
+              user.role === UserRole.PROCUSTOMER) && (
+              <div className="relative">
+                {" "}
+                <button
+                  ref={cartButtonRef}
+                  onClick={() => setCartOpen(!cartOpen)} /* ... */
+                >
+                  {" "}
+                  <CartIcon />{" "}
+                  {itemCount > 0 && (
+                    <span /* ... */>{itemCount > 99 ? "99+" : itemCount}</span>
+                  )}{" "}
+                </button>{" "}
+              </div>
+            )}
+          {/* Auth Button */}
+          <div className="ml-2 text-gray-300 flex items-center gap-2 relative">
             {!user ? (
               <AuthModal />
             ) : (
               <>
-                <UserButton />
-                <TierBadge />
+                {" "}
+                <UserButton />{" "}
+                <div className="absolute -bottom-1 -right-1 z-10">
+                  {" "}
+                  <TierBadge />{" "}
+                </div>{" "}
               </>
             )}
           </div>
@@ -163,67 +182,74 @@ export default function Navbar() {
 
         {/* Mobile Navigation */}
         <div className="md:hidden flex items-center gap-2">
-          {/* Cart Icon for logged-in users - Mobile */}
-          {user && (
-            <div className="relative">
-              <button
-                ref={cartButtonRef}
-                onClick={() => setCartOpen(!cartOpen)}
-                className="p-2 rounded-md text-gray-300 hover:text-white hover:bg-red-600/20"
-                aria-label={`Open cart containing ${itemCount} items`}
-              >
-                <CartIcon />
-                {itemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                    {itemCount > 99 ? "99+" : itemCount}
-                  </span>
-                )}
-                <span className="sr-only">Open cart</span>
-              </button>
-            </div>
-          )}
-
-          {/* Auth Button with Tier Badge - Mobile */}
-          <div className="text-gray-300 flex items-center gap-2">
+          {/* Mobile Cart Icon */}
+          {user &&
+            (user.role === UserRole.CUSTOMER ||
+              user.role === UserRole.PROCUSTOMER) && (
+              <div className="relative">
+                {" "}
+                <button
+                  ref={cartButtonRef}
+                  onClick={() => setCartOpen(!cartOpen)} /* ... */
+                >
+                  {" "}
+                  <CartIcon />{" "}
+                  {itemCount > 0 && (
+                    <span /* ... */>{itemCount > 99 ? "99+" : itemCount}</span>
+                  )}{" "}
+                </button>{" "}
+              </div>
+            )}
+          {/* Mobile Auth Button */}
+          <div className="text-gray-300 flex items-center gap-2 relative">
             {!user ? (
               <AuthModal />
             ) : (
               <>
-                <UserButton />
-                <TierBadge />
+                {" "}
+                <UserButton />{" "}
+                <div className="absolute -bottom-1 -right-1 z-10">
+                  {" "}
+                  <TierBadge />{" "}
+                </div>{" "}
               </>
             )}
           </div>
-
           {/* Mobile Menu Trigger */}
           <button
             ref={mobileMenuButtonRef}
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-md text-gray-300 hover:text-white hover:bg-red-600/20"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)} /* ... */
           >
-            <MenuIcon />
-            <span className="sr-only">Toggle menu</span>
+            {" "}
+            <MenuIcon />{" "}
           </button>
-
-          {/* Mobile Menu Component */}
-          <MobileMenu
-            isOpen={mobileMenuOpen}
-            onClose={() => setMobileMenuOpen(false)}
-            menuRef={mobileMenuRef}
-            routes={routes}
-            dashboardUrl="/customer"
-          />
         </div>
       </nav>
 
-      {/* Global Cart - will be shown for both mobile and desktop */}
-      {user && (
-        <Cart
-          isOpen={cartOpen}
-          onClose={() => setCartOpen(false)}
-          cartRef={cartMenuRef}
-        />
-      )}
+      {/* Mobile Menu Component - Pass dashboardPath (which is string | undefined) */}
+      <MobileMenu
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        menuRef={mobileMenuRef}
+        routes={routes}
+        dashboardUrl={dashboardPath} // Pass the variable directly
+      />
+
+      {/* Global Cart */}
+      {user &&
+        (user.role === UserRole.CUSTOMER ||
+          user.role === UserRole.PROCUSTOMER) && (
+          <Cart
+            isOpen={cartOpen}
+            onClose={() => setCartOpen(false)}
+            cartRef={cartMenuRef}
+          />
+        )}
     </header>
   );
-}
+};
+
+// Helper NavLink component (keep or remove based on preference)
+// const NavLink = ({ href, children }: { href: string; children: React.ReactNode }) => ( ... );
+
+export default Navbar;

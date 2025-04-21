@@ -1,14 +1,25 @@
+// app/(editor)/_components/UserButton.tsx
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Check, LogOutIcon, Monitor, Moon, Sun, UserIcon } from "lucide-react";
+import {
+  Check,
+  LogOutIcon,
+  Monitor,
+  Moon,
+  Sun,
+  UserIcon,
+  Loader2,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useState } from "react";
 
-import UserAvatar from "./UserAvatar";
+import UserAvatar from "./UserAvatar"; // Use EDITOR's UserAvatar
+// --- Use the EDITOR's Session Provider Hook ---
 import { useSession } from "../SessionProvider";
-import { logout } from "@/app/(auth)/actions";
+// --- End Change ---
+import { logout } from "@/app/(auth)/actions"; // Logout action is shared
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,16 +30,16 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
-import { Loader2 } from "lucide-react";
+// Removed incorrect import if present: import { DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
 
 interface UserButtonProps {
   className?: string;
 }
 
 export default function UserButton({ className }: UserButtonProps) {
-  const { user } = useSession();
+  const { user } = useSession(); // Now uses Editor's context
   const { theme, setTheme } = useTheme();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -37,18 +48,23 @@ export default function UserButton({ className }: UserButtonProps) {
     e.preventDefault();
     try {
       setIsLoggingOut(true);
-      // Ensure the dropdown stays open during logout
-      setIsOpen(true);
-      // Add a small delay to ensure the loading state is visible
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      setIsOpen(true); // Keep open during attempt
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Visual delay
       await logout();
+      // Redirect is handled by logout action
     } catch (error) {
       console.error("Logout failed:", error);
       setIsLoggingOut(false);
-      setIsOpen(false);
+      // Keep open on error setIsOpen(false);
     }
   };
 
+  // If no user in editor context, don't render (shouldn't happen due to layout guard)
+  if (!user) {
+    return null;
+  }
+
+  // Render the button for the editor
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
@@ -57,61 +73,61 @@ export default function UserButton({ className }: UserButtonProps) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>Logged in as {user.displayName}</DropdownMenuLabel>
+        <DropdownMenuLabel>Editor: {user.displayName}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <Link href={`/customer`}>
+
+        {/* Remove "My Account" link or point it to an editor profile page if desired */}
+        {/* <Link href={`/editor/profile`}> // Example editor profile link
           <DropdownMenuItem>
             <UserIcon className="mr-2 size-4" />
-            My Account
+            Editor Profile
           </DropdownMenuItem>
         </Link>
-        <DropdownMenuSeparator />
+        <DropdownMenuSeparator /> */}
+
+        {/* Theme Switcher */}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <Monitor className="mr-2 size-4" />
-            Theme
+            <Monitor className="mr-2 size-4" /> Theme
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
             <DropdownMenuSubContent>
               <DropdownMenuItem onClick={() => setTheme("system")}>
-                <Monitor className="mr-2 size-4" />
-                System default
-                {theme === "system" && <Check className="ms-2 size-4" />}
+                {" "}
+                <Monitor className="mr-2 size-4" /> System{" "}
+                {theme === "system" && <Check className="ms-2 size-4" />}{" "}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("light")}>
-                <Sun className="mr-2 size-4" />
-                Light
-                {theme === "light" && <Check className="ms-2 size-4" />}
+                {" "}
+                <Sun className="mr-2 size-4" /> Light{" "}
+                {theme === "light" && <Check className="ms-2 size-4" />}{" "}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("dark")}>
-                <Moon className="mr-2 size-4" />
-                Dark
-                {theme === "dark" && <Check className="ms-2 size-4" />}
+                {" "}
+                <Moon className="mr-2 size-4" /> Dark{" "}
+                {theme === "dark" && <Check className="ms-2 size-4" />}{" "}
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuPortal>
         </DropdownMenuSub>
         <DropdownMenuSeparator />
+
+        {/* Logout Item */}
         <DropdownMenuItem
           onClick={handleLogout}
           disabled={isLoggingOut}
           className={cn(
-            "flex items-center justify-between",
+            "flex items-center justify-between focus:bg-destructive focus:text-destructive-foreground",
             isLoggingOut && "cursor-not-allowed opacity-50",
           )}
         >
           <div className="flex items-center">
             {isLoggingOut ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                <span>Logging out...</span>
-              </>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <>
-                <LogOutIcon className="mr-2 size-4" />
-                <span>Logout</span>
-              </>
+              <LogOutIcon className="mr-2 size-4" />
             )}
+            <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
           </div>
         </DropdownMenuItem>
       </DropdownMenuContent>
