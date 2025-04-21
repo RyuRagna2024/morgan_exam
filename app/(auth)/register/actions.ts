@@ -1,3 +1,5 @@
+// app/(auth)/register/actions.ts
+
 "use server";
 
 import prisma from "@/lib/prisma";
@@ -6,6 +8,7 @@ import { isRedirectError } from "next/dist/client/components/redirect";
 import { redirect } from "next/navigation";
 import { RegisterFormValues, registerSchema } from "./validation";
 import { Prisma, UserRole } from "@prisma/client";
+import { z } from "zod"; // <<< ADD ZOD IMPORT HERE
 
 export async function signUp(
   formData: RegisterFormValues,
@@ -13,38 +16,25 @@ export async function signUp(
   try {
     const validatedData = registerSchema.parse(formData);
 
+    // --- Username check ---
     const existingUsername = await prisma.user.findFirst({
       where: {
-        username: {
-          equals: validatedData.username,
-          mode: "insensitive",
-        },
+        username: { equals: validatedData.username, mode: "insensitive" },
       },
     });
-
     if (existingUsername) {
-      return {
-        error: "Username already taken",
-      };
+      return { error: "Username already taken" };
     }
 
+    // --- Email check ---
     const existingEmail = await prisma.user.findFirst({
-      where: {
-        email: {
-          equals: validatedData.email,
-          mode: "insensitive",
-        },
-      },
+      where: { email: { equals: validatedData.email, mode: "insensitive" } },
     });
-
     if (existingEmail) {
-      return {
-        error: "Email already taken",
-      };
+      return { error: "Email already taken" };
     }
 
-    ////////////THIS IS THE PART OF THE FUNCTION WHERE ALL PARAMS HAVE PASSED THE CHECKS/////////////
-
+    // --- Hash password ---
     const passwordHash = await hash(validatedData.password, {
       memoryCost: 19456,
       timeCost: 2,
@@ -52,6 +42,7 @@ export async function signUp(
       parallelism: 1,
     });
 
+    // --- Create User in DB ---
     await prisma.user.create({
       data: {
         username: validatedData.username,
@@ -68,25 +59,58 @@ export async function signUp(
         backgroundUrl: validatedData.backgroundUrl,
         agreeTerms: validatedData.agreeTerms,
         role: validatedData.role as UserRole,
+        phoneNumber: "", // Explicitly set default
       },
     });
 
-    redirect("/login");
+    redirect("/login"); // Or "/register-success"
   } catch (error) {
+    // <<< error is initially 'unknown'
     if (isRedirectError(error)) throw error;
 
     console.error("Registration error:", error);
 
+    // --- Handle Prisma Errors ---
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2002") {
-        return {
-          error: "Username or email already exists.",
-        };
+        if (
+          error.meta &&
+          typeof error.meta.target === "string" &&
+          error.meta.target.includes("username")
+        ) {
+          return { error: "Username already exists." };
+        }
+        if (
+          error.meta &&
+          typeof error.meta.target === "string" &&
+          error.meta.target.includes("email")
+        ) {
+          return { error: "Email already exists." };
+        }
+        return { error: "Username or email already exists." };
       }
     }
 
+    // --- Handle Zod Errors (Type Check Added) ---
+    if (error instanceof z.ZodError) {
+      // <<< Check if error is ZodError
+      console.error("Zod validation failed on server:", error.flatten());
+      // You could potentially extract specific field errors here if needed
+      return {
+        error: "Invalid registration data provided. Please check the form.",
+      };
+    }
+
+    // --- Handle Generic Errors ---
+    if (error instanceof Error) {
+      // <<< Check if it's a standard Error object
+      return { error: `Something went wrong: ${error.message}` };
+    }
+
+    // --- Fallback for unknown errors ---
     return {
-      error: "Something went wrong. Please try again.",
+      error:
+        "An unexpected error occurred during registration. Please try again.",
     };
   }
 }
