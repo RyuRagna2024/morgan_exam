@@ -1,9 +1,11 @@
+// app/(public)/_components/(section-3)/_actions/(best-seller-actions)/upload-get-actions.ts
 "use server";
 
 import { validateRequest } from "@/auth";
-import { redirect } from "next/navigation";
+import { redirect } from "next/navigation"; // Keep if used, otherwise remove
 import { put } from "@vercel/blob";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client"; // Import Prisma types if needed for error handling
 
 // Constants for validation
 const ALLOWED_IMAGE_TYPES = [
@@ -17,10 +19,10 @@ const ALLOWED_IMAGE_TYPES = [
 ];
 const MAX_IMAGE_SIZE = 6 * 1024 * 1024; // 6MB
 
-// Response types
+// Response type
 interface BestSellerResponse {
   success: boolean;
-  data?: any;
+  data?: any; // Consider specific Prisma type like Prisma.BestSellerGetPayload<...>
   error?: string;
 }
 
@@ -29,105 +31,74 @@ export async function createBestSeller(
   formData: FormData,
 ): Promise<BestSellerResponse> {
   try {
-    // Validate user authentication and authorization
     const { user } = await validateRequest();
-    if (!user) throw new Error("Unauthorized access");
-    if (user.role !== "EDITOR") {
-      return redirect("/");
+    if (!user || user.role !== "EDITOR") {
+      // Throwing an error here is better for server actions usually
+      // Alternatively, return { success: false, error: "Unauthorized access" };
+      throw new Error("Unauthorized access");
     }
 
-    // Get form data
     const file = formData.get("image") as File;
     const name = formData.get("name") as string;
-    const price = parseFloat(formData.get("price") as string);
-    const rating = parseInt(formData.get("rating") as string);
+    const priceStr = formData.get("price") as string;
+    const ratingStr = formData.get("rating") as string;
 
-    // Validate inputs
-    if (!file || !file.size) throw new Error("No image file provided");
-    if (!name || !price || !rating) {
-      throw new Error("All fields are required");
-    }
-    if (rating < 1 || rating > 5) {
-      throw new Error("Rating must be between 1 and 5");
-    }
-    if (price <= 0) {
-      throw new Error("Price must be greater than 0");
-    }
+    // --- Refined Validation ---
+    if (!file || !file.size)
+      return { success: false, error: "Image file is required" };
+    if (!name) return { success: false, error: "Product name is required" };
+    const price = parseFloat(priceStr);
+    const rating = parseInt(ratingStr);
+    if (isNaN(price) || price <= 0)
+      return { success: false, error: "Valid price is required" };
+    if (isNaN(rating) || rating < 1 || rating > 5)
+      return { success: false, error: "Rating must be 1-5" };
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type))
+      return { success: false, error: "Invalid image type" };
+    if (file.size > MAX_IMAGE_SIZE)
+      return { success: false, error: "Image size exceeds 6MB" };
+    // --- End Validation ---
 
-    // Validate image type
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type as any)) {
-      throw new Error(
-        "Invalid file type. Allowed types are JPEG, PNG, GIF, WebP, SVG, BMP, and TIFF",
-      );
-    }
-
-    // Validate image size
-    if (file.size > MAX_IMAGE_SIZE) {
-      throw new Error("File size must be less than 6MB");
-    }
-
-    // Upload image to blob storage
     const fileExt = file.name.split(".").pop() || "jpg";
     const timestamp = Date.now();
-    const path = `best-seller/product_${user.id}_${timestamp}.${fileExt}`;
-
+    const path = `best-seller/product_${user.id}_${timestamp}.${fileExt}`; // Use user ID for folder structure maybe?
     const blob = await put(path, file, {
       access: "public",
       addRandomSuffix: false,
     });
+    if (!blob.url) return { success: false, error: "Failed to upload image" }; // Return error response
 
-    if (!blob.url) throw new Error("Failed to get URL from blob storage");
-
-    // Create best seller in database
     const bestSeller = await prisma.bestSeller.create({
-      data: {
-        name,
-        price,
-        rating,
-        imageUrl: blob.url,
-        userId: user.id,
-      },
+      data: { name, price, rating, imageUrl: blob.url, userId: user.id },
+      include: { user: { select: { displayName: true } } }, // Include necessary relations
     });
 
-    return {
-      success: true,
-      data: bestSeller,
-    };
+    return { success: true, data: bestSeller };
   } catch (error) {
     console.error("Error creating best seller:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
+    const message =
+      error instanceof Error ? error.message : "An unexpected error occurred";
+    // --- Ensure catch block returns the correct type ---
+    return { success: false, error: message };
   }
 }
 
-// Get all best seller
+// Get all best sellers
 export async function getBestSeller(): Promise<BestSellerResponse> {
+  console.log("[Action:getBestSeller] Fetching all best sellers...");
   try {
     const items = await prisma.bestSeller.findMany({
       orderBy: { createdAt: "asc" },
-      include: {
-        user: {
-          select: {
-            displayName: true,
-          },
-        },
-      },
+      include: { user: { select: { displayName: true } } },
     });
-
-    return {
-      success: true,
-      data: items,
-    };
+    console.log(`[Action:getBestSeller] Found ${items.length} items in DB.`);
+    return { success: true, data: items };
   } catch (error) {
-    console.error("Error fetching best seller:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
+    console.error("[Action:getBestSeller] Error fetching best sellers:", error);
+    const message =
+      error instanceof Error ? error.message : "An unexpected error occurred";
+    // --- Ensure catch block returns the correct type ---
+    return { success: false, error: message };
   }
 }
 
@@ -135,32 +106,27 @@ export async function getBestSeller(): Promise<BestSellerResponse> {
 export async function getBestSellerById(
   id: string,
 ): Promise<BestSellerResponse> {
+  if (!id) return { success: false, error: "Item ID is required" };
+  console.log(`[Action:getBestSellerById] Fetching item ${id}...`); // Added log
   try {
     const bestSeller = await prisma.bestSeller.findUnique({
       where: { id },
-      include: {
-        user: {
-          select: {
-            displayName: true,
-          },
-        },
-      },
+      include: { user: { select: { displayName: true } } },
     });
-
     if (!bestSeller) {
-      throw new Error("Best Seller not found");
+      console.log(`[Action:getBestSellerById] Item ${id} not found.`);
+      return { success: false, error: "Best seller not found" }; // Return error response
     }
-
-    return {
-      success: true,
-      data: bestSeller,
-    };
+    console.log(`[Action:getBestSellerById] Found item ${id}.`);
+    return { success: true, data: bestSeller };
   } catch (error) {
-    console.error("Error fetching best seller:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
+    console.error(
+      `[Action:getBestSellerById] Error fetching best seller ${id}:`,
+      error,
+    );
+    const message =
+      error instanceof Error ? error.message : "An unexpected error occurred";
+    // --- Ensure catch block returns the correct type ---
+    return { success: false, error: message };
   }
 }
