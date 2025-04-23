@@ -1,0 +1,12 @@
+// prisma/collectionBanner.prisma
+
+model CollectionBanner {
+  category String @id
+  imageUrl String
+  updatedAt DateTime @updatedAt
+  editorId String?
+  
+  editor   User?    @relation(fields: [editorId], references: [id], onDelete: SetNull)
+
+  @@map("collection_banners")
+}

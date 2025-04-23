@@ -1,4 +1,4 @@
-// types.ts
+// app/(public)/(group-products)/_components/(filterside)/types.ts
 
 // Variation Type
 export interface Variation {

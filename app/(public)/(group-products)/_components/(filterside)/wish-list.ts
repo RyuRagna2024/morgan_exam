@@ -1,3 +1,5 @@
+// app/(public)/(group-products)/_components/(filterside)/wish-list.ts
+
 "use server";
 
 import prisma from "@/lib/prisma";

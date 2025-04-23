@@ -1,4 +1,5 @@
-// app/(editor)/page.tsx
+// app/(editor)/editor/page.tsx
+
 import React from "react";
 
 export default function EditorDashboardPage() {

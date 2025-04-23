@@ -1,5 +1,6 @@
 // app/(editor)/_components/Navbar.tsx
-"use client"; // Needed for UserButton which uses hooks
+
+"use client";
 
 import Link from "next/link";
 import Image from "next/image";

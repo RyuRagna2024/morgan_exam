@@ -27,6 +27,6 @@
 
 [x] After setting up the my dashboard button routing you will discover that the editor route doesn't exist yet. Setup the editor route just with a navbar that has the userbutton to allow the editor to log out of their dashboard.
 
-[] For the Headwear, Apparel and All Collections route you will have to create a empty slot at the top of the product cards and the filter sidebar that allows an editor to upload a banner for each collection.
+[x] For the Headwear, Apparel and All Collections route you will have to create a empty slot at the top of the product cards and the filter sidebar that allows an editor to upload a banner for each collection.
 
 On this banner needs to be a pencil and a trash bin. The editor can open a modal when clicking one of the two icons. See this question [On the Home page there is 3 tabs. above] => This must be the same type of functionality.

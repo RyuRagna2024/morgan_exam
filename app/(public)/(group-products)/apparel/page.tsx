@@ -1,49 +1,47 @@
+// app/(public)/(group-products)/apparel/page.tsx
 "use client";
 
 import { useProductsByPathname } from "../_components/_store/useProductsByPathname";
 import ProductGrid from "../(unviresal_comp)/UnifiedProductGrid";
-import { useEffect } from "react";
+// Removed unused imports: useEffect, useState, getCollectionBanner, EditableCollectionBanner, Skeleton
 
 export default function ApparelPage() {
-  // Use the custom hook to get products filtered by pathname
-  const { products, isLoading, error } = useProductsByPathname();
+  // Products are fetched based on the pathname by the hook
+  // The banner is handled by the layout component wrapping this page
+  const {
+    products,
+    isLoading: isLoadingProducts,
+    error: productsError,
+  } = useProductsByPathname();
 
-  // Debug logging
-  useEffect(() => {
-    console.log("ApparelPage rendered:", {
-      productsCount: products?.length || 0,
-      isLoading,
-      error,
-    });
-  }, [products, isLoading, error]);
+  const categoryName = "Apparel"; // For page title
 
-  // Handle loading state
-  if (isLoading) {
-    return <div className="text-center py-12">Loading products...</div>;
-  }
-
-  // Handle error state
-  if (error) {
-    console.error("Error loading apparel products:", error);
-    return (
-      <div className="text-center py-12 text-red-500">
-        Error loading products: {error}
-      </div>
-    );
-  }
-
-  // Safe check for products array
+  // Ensure products is always an array for mapping
   const safeProducts = Array.isArray(products) ? products : [];
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Apparel Collection</h1>
-      {safeProducts.length === 0 ? (
+      {/* Banner is rendered by the layout */}
+
+      {/* Title */}
+      <h1 className="text-2xl font-bold mb-6">{categoryName} Collection</h1>
+
+      {/* Product Grid Section */}
+      {isLoadingProducts ? (
         <div className="text-center py-12 text-gray-500">
-          No apparel products found.
+          Loading products...
+        </div>
+      ) : productsError ? (
+        <div className="text-center py-12 text-red-500">
+          Error loading products: {productsError}
+        </div>
+      ) : safeProducts.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          No {categoryName.toLowerCase()} products found matching the current
+          filters.
         </div>
       ) : (
-        <ProductGrid products={safeProducts} enableLogging={true} />
+        <ProductGrid products={safeProducts} enableLogging={false} />
       )}
     </div>
   );

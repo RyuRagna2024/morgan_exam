@@ -1,3 +1,5 @@
+// app/(editor)/SessionProvider.tsx
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
@@ -9,7 +11,6 @@ import { UserRole as PrismaUserRole, Tier as PrismaTier } from "@prisma/client";
 // Using full enum might be simpler if shared components are used
 export type UserRole = PrismaUserRole;
 export type Tier = PrismaTier;
-
 
 // Define the SessionUser type needed *within* the editor context
 // Include only fields the editor components actually need
@@ -48,7 +49,10 @@ export default function SessionProvider({
   // Basic provider, just passing down the value received from the layout
   const sessionValue: SessionContext = {
     user: value.user,
-    session: value.session && value.user ? { ...value.session, user: value.user } : null,
+    session:
+      value.session && value.user
+        ? { ...value.session, user: value.user }
+        : null,
   };
 
   return (
@@ -62,7 +66,9 @@ export default function SessionProvider({
 export function useSession() {
   const context = useContext(SessionContext);
   if (!context) {
-    throw new Error("useSession (Editor) must be used within Editor SessionProvider");
+    throw new Error(
+      "useSession (Editor) must be used within Editor SessionProvider",
+    );
   }
   return context;
 }

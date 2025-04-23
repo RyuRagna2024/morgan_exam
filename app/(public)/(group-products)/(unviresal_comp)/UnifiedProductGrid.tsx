@@ -1,3 +1,5 @@
+// app/(public)/(group-products)/(unviresal_comp)/UnifiedProductGrid.tsx
+
 "use client";
 
 import React, { useEffect, useRef } from "react";

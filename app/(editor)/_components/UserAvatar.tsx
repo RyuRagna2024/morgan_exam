@@ -1,5 +1,5 @@
 // app/(editor)/_components/UserAvatar.tsx
-// (Content is identical to the public one)
+
 import { cn } from "@/lib/utils";
 import Image, { StaticImageData } from "next/image";
 
