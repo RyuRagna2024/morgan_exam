@@ -5,41 +5,88 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Bell } from "lucide-react";
-import UserButton from "./UserButton"; // Uses UserButton from app/(admin)/_components
+import UserButton from "./UserButton";
 import { cn } from "@/lib/utils";
+// Import DropdownMenu components
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import Link from "next/link"; // Import Link
 
-const AdminHeader = () => {
+// --- Define props for the header ---
+interface AdminHeaderProps {
+  hasNotifications: boolean;
+}
+
+const AdminHeader: React.FC<AdminHeaderProps> = ({ hasNotifications }) => {
+  // Destructure prop
   return (
     <header
       className={cn(
-        "flex h-16 shrink-0 items-center border-b border-border", // Header styling
-        "bg-background", // Theme background
-        "px-4 md:px-6", // Padding
-        "sticky top-0 z-20", // Sticky within main scroll area, lower z than sidebar button
+        "flex h-16 shrink-0 items-center border-b border-border",
+        "bg-background px-4 md:px-6 sticky top-0 z-20 justify-end", // Ensure justify-end if search removed
       )}
     >
-      {/* Left Side: Search Bar */}
-      <div className="relative flex-1 mr-4 md:grow-0">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Search..."
-          className="w-full rounded-lg bg-muted pl-8 md:w-[200px] lg:w-[336px]" // Muted background for input
-        />
-      </div>
+      {/* Search Bar Removed */}
 
-      {/* Right Side: Icons & User Menu */}
-      <div className="flex flex-1 items-center justify-end gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full"
-          aria-label="View notifications"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="sr-only">Notifications</span>
-        </Button>
-        <UserButton /> {/* Renders admin UserButton */}
+      {/* Right Side Items */}
+      <div className="flex items-center gap-4">
+        {/* --- Notification Bell with Dropdown --- */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            {/* Wrap button in relative div for positioning the dot */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                aria-label="View notifications"
+              >
+                <Bell className="h-5 w-5" />
+                {/* --- Conditional Notification Dot --- */}
+                {hasNotifications && (
+                  <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" /> // Simple red dot
+                )}
+                {/* --- End Dot --- */}
+              </Button>
+              <span className="sr-only">Notifications</span>
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            {" "}
+            {/* Adjust width */}
+            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {hasNotifications ? (
+              // Placeholder for actual notification items
+              <DropdownMenuItem asChild>
+                {/* Link to the support tickets page */}
+                <Link href="/admin/customers/support">
+                  New/Updated Support Tickets
+                </Link>
+              </DropdownMenuItem>
+            ) : (
+              /* Add more items here later */
+              <DropdownMenuItem disabled>No new notifications</DropdownMenuItem>
+            )}
+            {/* Optional: Add a 'View All' link */}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/admin/customers/support">
+                {" "}
+                {/* Adjust link */}
+                View All Support Tickets
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {/* --- End Notification Bell --- */}
+        <UserButton /> {/* Admin UserButton */}
       </div>
     </header>
   );
