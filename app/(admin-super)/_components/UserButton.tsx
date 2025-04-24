@@ -1,10 +1,15 @@
+// app/(admin-super)/_components/UserButton.tsx
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Check, LogOutIcon, Monitor, Moon, Sun, UserIcon } from "lucide-react";
-import { useTheme } from "next-themes";
+// Remove theme-related icons if not used elsewhere in this file: Check, Monitor, Moon, Sun
+// Keep LogOutIcon, Loader2, UserIcon (if profile link is added later)
+import { LogOutIcon, UserIcon, Loader2 } from "lucide-react";
+// Remove useTheme import
+// import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import UserAvatar from "./UserAvatar";
 import { useSession } from "../SessionProvider";
@@ -14,14 +19,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuPortal,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
+  DropdownMenuSeparator, // Keep Separator
+  DropdownMenuTrigger,
+  // Remove theme-related imports: DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger
 } from "@/components/ui/dropdown-menu";
-import { DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
-import { Loader2 } from "lucide-react";
 
 interface UserButtonProps {
   className?: string;
@@ -29,74 +30,59 @@ interface UserButtonProps {
 
 export default function UserButton({ className }: UserButtonProps) {
   const { user } = useSession();
-  const { theme, setTheme } = useTheme();
+  // Remove theme state
+  // const { theme, setTheme } = useTheme();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
+    setIsLoggingOut(true);
+    setIsOpen(true);
     try {
-      setIsLoggingOut(true);
-      // Ensure the dropdown stays open during logout
-      setIsOpen(true);
-      // Add a small delay to ensure the loading state is visible
       await new Promise((resolve) => setTimeout(resolve, 500));
       await logout();
     } catch (error) {
       console.error("Logout failed:", error);
+      toast.error("Logout failed. Please try again.");
       setIsLoggingOut(false);
-      setIsOpen(false);
     }
   };
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <button className={cn("flex-none rounded-full", className)}>
-          <UserAvatar avatarUrl={user.avatarUrl} size={40} />
+        <button
+          className={cn("flex-none rounded-full", className)}
+          aria-label="Open user menu"
+        >
+          <UserAvatar avatarUrl={user.avatarUrl} size={32} />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>Logged in as {user.displayName}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <Link href={`/customer`}>
-          <DropdownMenuItem>
-            <UserIcon className="mr-2 size-4" />
-            My Account
-          </DropdownMenuItem>
-        </Link>
-        <DropdownMenuSeparator />
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <Monitor className="mr-2 size-4" />
-            Theme
-          </DropdownMenuSubTrigger>
-          <DropdownMenuPortal>
-            <DropdownMenuSubContent>
-              <DropdownMenuItem onClick={() => setTheme("system")}>
-                <Monitor className="mr-2 size-4" />
-                System default
-                {theme === "system" && <Check className="ms-2 size-4" />}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("light")}>
-                <Sun className="mr-2 size-4" />
-                Light
-                {theme === "light" && <Check className="ms-2 size-4" />}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("dark")}>
-                <Moon className="mr-2 size-4" />
-                Dark
-                {theme === "dark" && <Check className="ms-2 size-4" />}
-              </DropdownMenuItem>
-            </DropdownMenuSubContent>
-          </DropdownMenuPortal>
-        </DropdownMenuSub>
-        <DropdownMenuSeparator />
+        {/* Keep placeholder for potential future settings/profile link */}
+        {/* <Link href="/super-admin/settings">
+            <DropdownMenuItem>
+              <UserIcon className="mr-2 size-4" />
+              Profile Settings
+            </DropdownMenuItem>
+          </Link>
+          <DropdownMenuSeparator /> */}
+
+        {/* --- REMOVED THEME SUBMENU --- */}
+
+        {/* Logout Item remains */}
         <DropdownMenuItem
           onClick={handleLogout}
           disabled={isLoggingOut}
           className={cn(
-            "flex items-center justify-between",
+            "flex items-center justify-between cursor-pointer focus:bg-destructive focus:text-destructive-foreground",
             isLoggingOut && "cursor-not-allowed opacity-50",
           )}
         >

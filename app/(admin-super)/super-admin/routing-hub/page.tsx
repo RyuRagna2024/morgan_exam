@@ -1,40 +1,64 @@
+// app/(admin-super)/routing-hub/page.tsx
 "use client";
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// Button removed if not used directly
+import { Home, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { cn } from "@/lib/utils"; // <<< IMPORT cn UTILITY ADDED
 
 const RoutingHubPage = () => {
   const router = useRouter();
 
-  const navigateTo = (path: string) => {
-    router.push(path);
-  };
+  // Define the cards/links
+  const hubItems = [
+    {
+      title: "Admin",
+      description: "Manage system settings",
+      href: "/admin",
+      icon: ShieldCheck,
+      color: "text-blue-600 dark:text-blue-400",
+    },
+    {
+      title: "Home",
+      description: "Return to main page",
+      href: "/",
+      icon: Home,
+      color: "text-green-600 dark:text-green-400",
+    },
+    // Add more cards here if needed later
+  ];
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-6">
-          Super Admin Routing Hub
-        </h1>
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold">Routing Hub</h1>
 
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            onClick={() => navigateTo("/admin")}
-            className="bg-blue-600 hover:bg-blue-700 text-white py-4 px-6 rounded-lg transition-colors flex flex-col items-center justify-center"
-          >
-            <span className="text-xl font-medium">Admin</span>
-            <span className="text-sm mt-1">Manage system settings</span>
-          </button>
-
-          <button
-            onClick={() => navigateTo("/")}
-            className="bg-green-600 hover:bg-green-700 text-white py-4 px-6 rounded-lg transition-colors flex flex-col items-center justify-center"
-          >
-            <span className="text-xl font-medium">Home</span>
-            <span className="text-sm mt-1">Return to main page</span>
-          </button>
-        </div>
+      {/* Grid for the cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {hubItems.map((item) => (
+          <Link href={item.href} key={item.title} legacyBehavior passHref>
+            <a className="block hover:scale-[1.02] transition-transform duration-200">
+              <Card className="h-full hover:border-primary/50 cursor-pointer">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-lg font-semibold">
+                    {item.title}
+                  </CardTitle>
+                  {/* Use cn here */}
+                  <item.icon className={cn("h-6 w-6", item.color)} />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    {item.description}
+                  </p>
+                </CardContent>
+              </Card>
+            </a>
+          </Link>
+        ))}
       </div>
+      {/* Placeholder for other dashboard content */}
     </div>
   );
 };
