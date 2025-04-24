@@ -18,7 +18,7 @@ const Footer: React.FC = () => {
             <div className="lg:col-span-2 space-y-8">
               <div className="space-y-4">
                 <h2 className="text-2xl font-semibold text-red-500">
-                  TechStyle
+                  DevStyle
                 </h2>
                 <p className="text-gray-300 text-sm leading-relaxed max-w-md">
                   Discover the perfect blend of technology and style. Shop the
@@ -42,7 +42,7 @@ const Footer: React.FC = () => {
                 <h3 className="font-medium mb-4 text-white">Contact</h3>
                 <div className="space-y-3 text-sm text-gray-300">
                   <p>+1 (555) 123-4567</p>
-                  <p>support@techstyle.com</p>
+                  <p>support@devstyle.com</p>
                 </div>
               </div>
             </div>
@@ -72,7 +72,7 @@ const Footer: React.FC = () => {
           <div className="px-6 py-8">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="text-sm text-gray-400">
-                © {new Date().getFullYear()} TechStyle. All rights reserved.
+                © {new Date().getFullYear()} DevStyle. All rights reserved.
               </div>
 
               <div className="flex items-center gap-8">

@@ -1,14 +1,15 @@
 // app/(customer)/layout.tsx
 import { validateRequest } from "@/auth";
 import { redirect } from "next/navigation";
-// Import SessionProvider AND SessionUser type from THIS directory's provider
-import SessionProvider, { SessionUser } from "./SessionProvider"; // <<< Uses ./SessionProvider
-import { Toaster } from "react-hot-toast";
-import { UserRole as PrismaUserRole, Tier as PrismaTier } from "@prisma/client"; // Use alias for Prisma enums
-import Navbar from "./_components/Navbar";
-import CustomerSidebar from "./_components/CustomerSidebar";
+import SessionProvider, { SessionUser } from "./SessionProvider";
+import { Toaster } from "react-hot-toast"; // Or use Sonner if preferred globally
+import { UserRole as PrismaUserRole, Tier as PrismaTier } from "@prisma/client";
+// Navbar removed
+import CustomerSidebar from "./_components/CustomerSidebar"; // Keep Sidebar
+import MainContentHeader from "./_components/MainContentHeader"; // <<< Import NEW Header
 import { getCustomerOrderCount } from "./_components/(sidebar)/_profile-actions/count-orders";
 import { getCustomerWishlistCount } from "./_components/(sidebar)/_profile-actions/count-wishlist";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -17,16 +18,14 @@ export default async function CustomerLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Fetch full user data and session from auth
-  // Assuming validateRequest returns the full user object including tier
   const { user: fullUser, session } = await validateRequest();
 
-  // Authentication and Authorization check
-  if (!fullUser || !session || fullUser.role !== PrismaUserRole.CUSTOMER) {
+  // Auth check (allow CUSTOMER or PROCUSTOMER)
+  if (!fullUser || !session || (fullUser.role !== PrismaUserRole.CUSTOMER && fullUser.role !== PrismaUserRole.PROCUSTOMER)) {
     return redirect("/");
   }
 
-  // --- Create the client-safe SessionUser object INCLUDING TIER ---
+  // Prepare SessionUser
   const sessionUser: SessionUser = {
     id: fullUser.id,
     username: fullUser.username,
@@ -38,66 +37,53 @@ export default async function CustomerLayout({
     country: fullUser.country,
     avatarUrl: fullUser.avatarUrl ?? null,
     backgroundUrl: fullUser.backgroundUrl ?? null,
-    // Cast role, ensure SessionUser['role'] includes all PrismaUserRole values if needed
     role: fullUser.role as SessionUser["role"],
-    tier: fullUser.tier, // <<< ADDED tier field (Type should match SessionUser.tier -> PrismaTier)
-    phoneNumber: fullUser.phoneNumber ?? null, // Add phone if needed by SessionUser
+    tier: fullUser.tier,
+    phoneNumber: fullUser.phoneNumber ?? null,
   };
 
-  // Fetch order and wishlist counts
+  // Fetch counts
   const [orderCountResponse, wishlistCountResponse] = await Promise.all([
     getCustomerOrderCount(),
     getCustomerWishlistCount(),
   ]);
-  const orderCount = orderCountResponse.success
-    ? orderCountResponse.totalOrders || 0
-    : 0;
-  const wishlistCount = wishlistCountResponse.success
-    ? wishlistCountResponse.wishlistItemCount || 0
-    : 0;
-
-  const navbarHeightDesktop = 88; // Example: Replace with actual desktop height
-  const navbarHeightMobile = 88; // Example: Replace with actual mobile height
+  const orderCount = orderCountResponse.success ? orderCountResponse.totalOrders || 0 : 0;
+  const wishlistCount = wishlistCountResponse.success ? wishlistCountResponse.wishlistItemCount || 0 : 0;
 
   return (
-    // Use the Customer SessionProvider from this directory
     <SessionProvider value={{ user: sessionUser, session: session }}>
-      <Toaster
-        position="top-center"
-        containerStyle={{ top: navbarHeightDesktop + 16 }}
-        toastOptions={
-          {
-            /* ... your options ... */
-          }
-        }
-      />
+      <Toaster position="top-right" /> {/* Adjusted position */}
 
-      <div className="flex flex-col min-h-screen">
-        {/* Fixed Navbar Wrapper */}
-        <div className="fixed top-0 left-0 right-0 z-50">
-          <Navbar /> {/* This Navbar will use the Customer SessionProvider */}
-        </div>
+      {/* Main Full Height Flex Container */}
+      {/* Keep overflow hidden at the root level */}
+      <div className="flex h-screen bg-background text-foreground overflow-hidden">
 
-        {/* Spacers */}
-        <div className={`block md:hidden h-[${navbarHeightMobile}px]`} />
-        <div className={`hidden md:block h-[${navbarHeightDesktop}px]`} />
+        {/* Sidebar (Fixed Width, Full Height) */}
+        {/* Sidebar manages its own width and internal scrolling */}
+        <CustomerSidebar
+          user={sessionUser}
+          orderCount={orderCount}
+          wishlistCount={wishlistCount}
+        />
 
-        {/* Container for Sidebar + Main Content */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar */}
-          <div className="hidden md:flex h-full">
-            <CustomerSidebar
-              user={sessionUser} // Pass the user data with tier
-              orderCount={orderCount}
-              wishlistCount={wishlistCount}
-            />
-          </div>
-          {/* Main Content Area */}
-          <main className="flex-grow p-6 bg-slate-100 overflow-y-auto">
+        {/* Main Content Area Wrapper */}
+        {/* Removed overflow-hidden from this immediate parent */}
+        <div className="flex flex-1 flex-col"> {/* No overflow-hidden here */}
+
+          {/* Header WITHIN Main Content Area */}
+          {/* This header scrolls with the main content area */}
+          <MainContentHeader />
+
+          {/* Scrollable Main Content */}
+          {/* flex-1 takes remaining height, overflow-y-auto enables scroll */}
+          <main className="flex-1 overflow-y-auto p-6 lg:p-8 bg-muted/40"> {/* Use theme background */}
             {children}
           </main>
         </div>
+        {/* --- End Main Content Area --- */}
+
       </div>
+      {/* --- End Main Flex Container --- */}
     </SessionProvider>
   );
 }

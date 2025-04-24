@@ -1,27 +1,26 @@
 // app/(customer)/customer/mymessages/_components/CustomerTicketDetailsCard.tsx
 
 import React from "react";
-// *** Adjust this import path to your customer dynamic page ***
-import { FullCustomerTicketDetails } from "@/app/(customer)/customer/mymessages/[ticketId]/page";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Adjust path if needed
+// Import the precise type from the detail page
+import { FullCustomerTicketDetails } from "@/app/(customer)/customer/mymessages/[ticketId]/page"; // Adjust path
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
-// *** Adjust this import path to your shared StatusBadge component ***
-import { StatusBadge } from "@/components/shared/StatusBadge";
+import { StatusBadge } from "@/components/shared/StatusBadge"; // Adjust path
+import { Button } from "@/components/ui/button"; // <<< IMPORT BUTTON
+import Link from "next/link"; // <<< IMPORT LINK
 
 interface CustomerTicketDetailsCardProps {
-  // Use the type exported from the customer's detail page
   ticket: FullCustomerTicketDetails;
 }
 
 const CustomerTicketDetailsCard: React.FC<CustomerTicketDetailsCardProps> = ({
   ticket,
 }) => {
-  // Basic check in case the ticket prop is unexpectedly null/undefined
   if (!ticket) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Error</CardTitle>
+          <CardTitle className="text-destructive">Error</CardTitle>
         </CardHeader>
         <CardContent>
           <p>Ticket details could not be loaded.</p>
@@ -32,59 +31,67 @@ const CustomerTicketDetailsCard: React.FC<CustomerTicketDetailsCardProps> = ({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gray-50 rounded-t-lg border-b">
-        {/* Display truncated ID */}
-        <CardTitle className="text-lg font-semibold text-gray-700">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-muted/50 dark:bg-muted/30 border-b">
+        <CardTitle className="text-lg font-semibold">
           Ticket #{ticket.id.substring(0, 8)}... Details
         </CardTitle>
-        {/* Optional: Add collapse/expand icon/button here */}
+        <StatusBadge status={ticket.status} />
       </CardHeader>
       <CardContent className="pt-6 text-sm">
-        {/* Grid layout for details */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           {/* Subject */}
-          <div className="font-medium text-gray-500">Subject / Title</div>
-          <div>{ticket.title}</div>
-
-          {/* Status */}
-          <div className="font-medium text-gray-500">Status</div>
           <div>
-            {/* Use the shared StatusBadge component */}
-            <StatusBadge status={ticket.status} />
+            <p className="font-medium text-muted-foreground mb-1">
+              Subject / Title
+            </p>
+            <p className="text-foreground">{ticket.title}</p>
           </div>
-
           {/* Date Created */}
-          <div className="font-medium text-gray-500">Date Created</div>
-          <div>{format(new Date(ticket.createdAt), "yyyy-MM-dd HH:mm:ss")}</div>
-
+          <div>
+            <p className="font-medium text-muted-foreground mb-1">
+              Date Created
+            </p>
+            <p className="text-foreground">
+              {format(new Date(ticket.createdAt), "PPPp")}
+            </p>
+          </div>
           {/* Last Updated */}
-          <div className="font-medium text-gray-500">Last Updated</div>
-          <div>{format(new Date(ticket.updatedAt), "yyyy-MM-dd HH:mm:ss")}</div>
-
+          <div>
+            <p className="font-medium text-muted-foreground mb-1">
+              Last Updated
+            </p>
+            <p className="text-foreground">
+              {format(new Date(ticket.updatedAt), "PPPp")}
+            </p>
+          </div>
+          {/* Spacer */}
+          <div></div>
           {/* Initial Message */}
-          <div className="font-medium text-gray-500 md:col-span-1">
-            Your Initial Message
+          <div className="md:col-span-2 mt-2">
+            <p className="font-medium text-muted-foreground mb-1">
+              Your Initial Message
+            </p>
+            <div className="text-foreground whitespace-pre-wrap bg-muted/50 dark:bg-muted/30 p-3 rounded border border-border">
+              {ticket.message}
+            </div>
           </div>
-          <div className="md:col-span-2 text-gray-800 whitespace-pre-wrap bg-gray-50 p-3 rounded border">
-            {ticket.message}{" "}
-            {/* Display the initial message stored on the ticket */}
-          </div>
-
-          {/* Attachment Link (if provided initially) */}
+          {/* Attachment Link */}
           {ticket.attachmentUrl && (
-            <>
-              <div className="font-medium text-gray-500">Your Attachment</div>
-              <div>
-                <a
+            <div className="md:col-span-2">
+              <p className="font-medium text-muted-foreground mb-1">
+                Your Attachment
+              </p>
+              {/* Use Button with asChild and Link */}
+              <Button asChild variant="link" className="p-0 h-auto text-sm">
+                <Link
                   href={ticket.attachmentUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline break-all"
                 >
                   View Attachment
-                </a>
-              </div>
-            </>
+                </Link>
+              </Button>
+            </div>
           )}
         </div>
       </CardContent>

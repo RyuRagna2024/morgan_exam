@@ -1,22 +1,35 @@
+// app/(customer)/subscriptions/_components/TierApplicationForm.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm } from "react-hook-form"; // Removed Controller, not needed for RadioGroup with FormField
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-import { Medal } from "lucide-react";
+import { Medal, Loader2 } from "lucide-react";
 import { TierApplicationFormData, TierPackage } from "../types";
 import { tierApplicationSchema } from "../validations";
 import { submitTierApplication } from "../_actions/actions";
+// Import necessary components
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from "@/components/ui/form";
 
-// Types for the component props
 type TierApplicationFormProps = {
   currentTier: string;
   lastAppliedTier?: string;
 };
 
-// Tier package information with visual styling
+// Tier info with DARK MODE variants
 const TIER_INFO = {
   SILVER: {
     title: "Silver Tier",
@@ -25,10 +38,13 @@ const TIER_INFO = {
       "5% discount on all purchases",
       "Free standard shipping",
     ],
-    description: "Perfect for regular shoppers looking for added value.",
-    color: "text-gray-600",
-    bgColor: "bg-gray-100",
-    borderColor: "border-gray-500",
+    description: "...",
+    color: "text-gray-700 dark:text-gray-300",
+    bgColor: "bg-gray-100 dark:bg-gray-800/50",
+    borderColor: "border-gray-300 dark:border-gray-700",
+    hoverBorderColor: "hover:border-gray-400 dark:hover:border-gray-500",
+    selectedBorderColor: "border-primary dark:border-primary",
+    selectedBgColor: "bg-primary/10 dark:bg-primary/20",
   },
   GOLD: {
     title: "Gold Tier",
@@ -38,10 +54,13 @@ const TIER_INFO = {
       "Free express shipping",
       "Exclusive access to limited editions",
     ],
-    description: "Ideal for frequent shoppers who appreciate premium service.",
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-100",
-    borderColor: "border-yellow-500",
+    description: "...",
+    color: "text-yellow-700 dark:text-yellow-400",
+    bgColor: "bg-yellow-100 dark:bg-yellow-900/40",
+    borderColor: "border-yellow-400 dark:border-yellow-700",
+    hoverBorderColor: "hover:border-yellow-500 dark:hover:border-yellow-600",
+    selectedBorderColor: "border-primary dark:border-primary",
+    selectedBgColor: "bg-primary/10 dark:bg-primary/20",
   },
   PLATINUM: {
     title: "Platinum Tier",
@@ -52,11 +71,13 @@ const TIER_INFO = {
       "Free returns and exchanges",
       "Complimentary gift wrapping",
     ],
-    description:
-      "The ultimate shopping experience for our most valued customers.",
-    color: "text-blue-700",
-    bgColor: "bg-blue-100",
-    borderColor: "border-blue-500",
+    description: "...",
+    color: "text-blue-700 dark:text-blue-400",
+    bgColor: "bg-blue-100 dark:bg-blue-900/40",
+    borderColor: "border-blue-400 dark:border-blue-700",
+    hoverBorderColor: "hover:border-blue-500 dark:hover:border-blue-600",
+    selectedBorderColor: "border-primary dark:border-primary",
+    selectedBgColor: "bg-primary/10 dark:bg-primary/20",
   },
 };
 
@@ -67,33 +88,18 @@ export default function TierApplicationForm({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Keep track of the selected tier locally
-  const [selectedTier, setSelectedTier] = useState<TierPackage | undefined>(
-    lastAppliedTier as TierPackage | undefined,
-  );
-
-  // Initialize the form
-  const {
-    handleSubmit,
-    formState: { errors },
-    setValue,
-    watch,
-  } = useForm<TierApplicationFormData>({
+  const form = useForm<TierApplicationFormData>({
     resolver: zodResolver(tierApplicationSchema),
-    defaultValues: {
-      package: selectedTier,
-    },
+    defaultValues: { package: lastAppliedTier as TierPackage | undefined },
   });
 
-  // Filter available tiers based on current tier
-  const availableTiers = Object.entries(TIER_INFO)
+  const watchedPackage = form.watch("package");
+
+  const availableTiers = Object.entries(TIER_INFO) /* ... filter logic ... */
     .filter(([tierKey]) => {
-      // Convert to array of tiers for comparison
       const tierOrder = ["BRONZE", "SILVER", "GOLD", "PLATINUM"];
       const currentIndex = tierOrder.indexOf(currentTier);
       const tierIndex = tierOrder.indexOf(tierKey);
-
-      // Only show tiers higher than current tier
       return tierIndex > currentIndex;
     })
     .reduce(
@@ -104,36 +110,17 @@ export default function TierApplicationForm({
       {} as typeof TIER_INFO,
     );
 
-  // Make sure we set the form value when component mounts or lastAppliedTier changes
   useEffect(() => {
-    if (lastAppliedTier) {
-      setSelectedTier(lastAppliedTier as TierPackage);
-      setValue("package", lastAppliedTier as TierPackage);
-    }
-  }, [lastAppliedTier, setValue]);
-
-  // Track the watch value and update selectedTier when it changes through form interactions
-  const watchPackage = watch("package");
-  useEffect(() => {
-    if (watchPackage && watchPackage !== selectedTier) {
-      setSelectedTier(watchPackage);
-    }
-  }, [watchPackage, selectedTier]);
-
-  const onSelectTier = (tier: TierPackage) => {
-    setSelectedTier(tier);
-    setValue("package", tier);
-  };
+    form.reset({ package: lastAppliedTier as TierPackage | undefined });
+  }, [lastAppliedTier, form]);
 
   const onSubmit = async (data: TierApplicationFormData) => {
+    /* ... submit logic ... */
     setIsSubmitting(true);
-
     try {
       const result = await submitTierApplication(data);
-
       if (result.success) {
         toast.success(result.message);
-        // Refresh the page to update the tier status display
         router.refresh();
       } else {
         toast.error(result.message);
@@ -147,150 +134,170 @@ export default function TierApplicationForm({
     }
   };
 
-  // Extract form rendering to a function to avoid code duplication
+  // Render function for the form content
   const renderApplicationForm = () => {
-    // Show the application form if there are available tiers
     if (Object.keys(availableTiers).length === 0) {
       return (
-        <div className="text-center py-4">
-          <p className="text-gray-600">
-            You have reached our highest tier! Enjoy all the exclusive benefits
-            of your current membership.
-          </p>
+        <div className="text-center py-4 text-muted-foreground">
+          Highest tier reached!
         </div>
       );
     }
 
     return (
       <div className="space-y-6">
-        <div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {Object.entries(availableTiers).map(([tier, info]) => (
-              <div
-                key={tier}
-                onClick={() => onSelectTier(tier as TierPackage)}
-                className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                  selectedTier === tier
-                    ? `${info.borderColor} ${info.bgColor} shadow-md`
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <div className="flex items-center mb-3">
-                  <input
-                    type="radio"
-                    name="tierPackage"
-                    id={`tier-${tier}`}
-                    checked={selectedTier === tier}
-                    onChange={() => onSelectTier(tier as TierPackage)}
-                    className="h-4 w-4 text-teal-500 focus:ring-teal-400"
-                  />
-                  <label
-                    htmlFor={`tier-${tier}`}
-                    className="ml-2 font-medium text-gray-800"
-                  >
-                    {info.title}
-                  </label>
-                </div>
-
-                <div className="flex justify-center my-3">
-                  <Medal className={`w-8 h-8 ${info.color}`} />
-                </div>
-
-                <p className="text-sm text-gray-600 mb-2">{info.description}</p>
-
-                <ul className="text-sm space-y-1 mt-3">
-                  {info.benefits.map((benefit, index) => (
-                    <li key={index} className="flex items-start">
-                      <span className="text-teal-500 mr-2">✓</span>
-                      <span>{benefit}</span>
-                    </li>
+        {/* --- CORRECTED FormField Structure for RadioGroup --- */}
+        <FormField
+          control={form.control}
+          name="package"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              {" "}
+              {/* Add space below label if using one */}
+              {/* Optional: Add a general label for the group */}
+              {/* <FormLabel className="text-base font-semibold">Select Tier</FormLabel> */}
+              <FormControl>
+                {/* RadioGroup receives value and onChange from 'field' */}
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  value={field.value}
+                  className="grid grid-cols-1 md:grid-cols-3 gap-4" // Grid layout for options
+                >
+                  {/* Map directly inside RadioGroup */}
+                  {Object.entries(availableTiers).map(([tierKey, info]) => (
+                    // Each option is wrapped in a div + Label for layout and clickability
+                    <div key={tierKey}>
+                      {/* Label associates text/content with the RadioGroupItem */}
+                      <Label
+                        htmlFor={`tier-${tierKey}`}
+                        className={cn(
+                          "border rounded-lg p-4 cursor-pointer transition-all flex flex-col items-center text-center h-full", // h-full for equal height cards
+                          "hover:shadow-md",
+                          field.value === tierKey // Check selection against RHF field value
+                            ? `${info.selectedBorderColor} ${info.selectedBgColor} ring-2 ring-primary/50 dark:ring-primary/50`
+                            : `${info.borderColor} ${info.hoverBorderColor} dark:bg-card hover:bg-accent/50 dark:hover:bg-muted/50`, // Adjusted hover background
+                        )}
+                      >
+                        {/* Actual Radio Input (Visually Hidden) */}
+                        <FormControl>
+                          {/* This needs to be inside a FormControl according to shadcn FormField structure */}
+                          <RadioGroupItem
+                            value={tierKey}
+                            id={`tier-${tierKey}`}
+                            className="sr-only"
+                            aria-label={info.title}
+                          />
+                        </FormControl>
+                        {/* Tier Info Display */}
+                        <span
+                          className={cn(
+                            "font-semibold text-lg mb-2",
+                            info.color,
+                          )}
+                        >
+                          {info.title}
+                        </span>
+                        <Medal className={cn("w-10 h-10 my-3", info.color)} />
+                        <p className="text-sm text-muted-foreground mb-3 flex-grow">
+                          {info.description}
+                        </p>
+                        <ul className="text-xs text-muted-foreground space-y-1 text-left w-full">
+                          {info.benefits.map((benefit, index) => (
+                            <li key={index} className="flex items-start">
+                              <span className="text-primary mr-2 pt-0.5">
+                                ✓
+                              </span>
+                              <span>{benefit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </Label>
+                    </div>
                   ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          {errors.package && (
-            <p className="text-red-500 text-sm mt-2">
-              {errors.package.message}
-            </p>
+                </RadioGroup>
+              </FormControl>
+              {/* Message for the entire group */}
+              <FormMessage />
+            </FormItem>
           )}
-        </div>
+        />
+        {/* --- End CORRECTED FormField Structure --- */}
 
-        <div className="border-t pt-6">
-          <p className="text-sm text-gray-600 mb-4">
-            By submitting this application, your account will be reviewed for
-            eligibility for the selected tier. This process typically takes 2-3
-            business days.
+        {/* --- Submission Area --- */}
+        <div className="border-t border-border pt-6 mt-6">
+          <p className="text-sm text-muted-foreground mb-4">
+            {" "}
+            Submitting will initiate a review...{" "}
           </p>
-
           <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={isSubmitting || !selectedTier}
-              className="px-6 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <Button type="submit" disabled={isSubmitting || !watchedPackage}>
+              {isSubmitting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
               {isSubmitting
                 ? "Submitting..."
                 : lastAppliedTier
                   ? "Update Application"
                   : "Submit Application"}
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
+        {/* --- End Submission Area --- */}
+      </div> // Closing div for the space-y-6 container
     );
   };
 
-  // Show application status if there's a latest application
+  // --- Display Logic for existing application ---
   if (lastAppliedTier) {
     const tierInfo = TIER_INFO[lastAppliedTier as keyof typeof TIER_INFO];
-
-    // If we don't have tier info for this package, it might be the current tier
     if (!tierInfo) {
       return (
-        <div className="text-center py-4">
-          <p className="text-gray-600">
-            No higher tiers available. You have reached our highest tier!
-          </p>
+        <div className="text-center py-4 text-muted-foreground">
+          {" "}
+          Highest tier reached!{" "}
         </div>
       );
     }
-
     return (
-      <div>
-        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-8">
-          <div className="flex items-center mb-3">
-            <div className={`p-2 rounded-full ${tierInfo.bgColor} mr-3`}>
-              <Medal className={`w-6 h-6 ${tierInfo.color}`} />
+      <div className="space-y-6">
+        {/* Status box */}
+        <div className="bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300 p-4 rounded-lg mb-0">
+          {/* ... status content ... */}
+          <div className="flex items-center mb-2">
+            <div className={`p-1 rounded-full ${tierInfo.bgColor} mr-2`}>
+              {" "}
+              <Medal className={`w-5 h-5 ${tierInfo.color}`} />{" "}
             </div>
             <h3 className="font-medium">Current Application Status</h3>
           </div>
-
-          <p className="text-sm text-blue-800 mb-2">
-            You have applied for the <strong>{tierInfo.title}</strong>. Your
-            application is currently under review.
-          </p>
-
-          <p className="text-sm text-blue-800">
-            This process typically takes 2-3 business days. You will receive a
-            notification once your application has been processed.
+          <p className="text-sm mb-1">
+            {" "}
+            You applied for <strong>{tierInfo.title}</strong>. Review takes 2-3
+            business days.{" "}
           </p>
         </div>
-
-        <h3 className="text-lg font-medium mb-4">Change Your Application</h3>
-        <p className="text-sm text-gray-600 mb-6">
-          If you wish to modify your application to a different tier, you can
-          select a new tier below. This will replace your current application.
+        <h3 className="text-lg font-semibold pt-4">Change Your Application</h3>
+        <p className="text-sm text-muted-foreground mb-0">
+          {" "}
+          Select a different tier below to replace your current
+          application.{" "}
         </p>
-
-        <form onSubmit={handleSubmit(onSubmit)}>{renderApplicationForm()}</form>
+        {/* Wrap form rendering in Form component */}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0">
+            {renderApplicationForm()}
+          </form>
+        </Form>
       </div>
     );
   }
 
-  // Main render for new applications
+  // Default render for new applications
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>{renderApplicationForm()}</form>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0">
+        {renderApplicationForm()}
+      </form>
+    </Form>
   );
 }

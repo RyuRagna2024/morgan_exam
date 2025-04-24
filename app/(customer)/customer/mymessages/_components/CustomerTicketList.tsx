@@ -1,19 +1,42 @@
 // app/(customer)/customer/mymessages/_components/CustomerTicketList.tsx
-
 "use client";
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-// Ensure this import path is correct and page.tsx exports the type
-import { TicketWithDetails } from "@/app/(customer)/customer/mymessages/page";
-import { TicketStatus } from "@prisma/client";
+// Import the CORRECT list item type from the page or types file
+import { TicketListItem } from "@/app/(customer)/customer/mymessages/page"; // Adjust path if needed
+import { TicketStatus } from "@prisma/client"; // Keep this import
 import { format, formatDistanceToNowStrict } from "date-fns";
-import { Eye } from "lucide-react";
-import { Button } from "@/components/ui/button"; // Adjust path
-import { StatusBadge } from "@/components/shared/StatusBadge"; // Adjust path
+import { Eye, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+// Assuming StatusBadge is correctly adapted for dark mode
+import { StatusBadge } from "@/components/shared/StatusBadge"; // Adjust path if needed
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label"; // Import Label
 
 interface CustomerTicketListProps {
-  tickets: TicketWithDetails[];
+  tickets: TicketListItem[]; // Use the specific list item type from page.tsx/types.ts
 }
 
 export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
@@ -25,19 +48,18 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
   const [entriesPerPage, setEntriesPerPage] = useState(10);
 
   // --- Memoized Logic ---
-  const filteredTickets = useMemo((): TicketWithDetails[] => {
-    // Explicit Return Type
-    // Safety check for input array
+  const filteredTickets = useMemo((): TicketListItem[] => {
+    // Safety check
     if (!Array.isArray(tickets)) {
       console.warn("CustomerTicketList: 'tickets' prop is not an array.");
-      return []; // MUST return an array matching the declared return type
+      return [];
     }
     const lowerSearchTerm = searchTerm.toLowerCase();
     if (!lowerSearchTerm) {
-      return tickets; // Return original array if no search term
+      return tickets;
     }
     // Perform filtering
-    const results = tickets.filter(
+    return tickets.filter(
       (ticket) =>
         (ticket?.title?.toLowerCase() ?? "").includes(lowerSearchTerm) ||
         (ticket?.id?.toLowerCase() ?? "").includes(lowerSearchTerm) ||
@@ -45,27 +67,22 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
           lowerSearchTerm,
         ),
     );
-    return results; // Return the filtered array
-  }, [tickets, searchTerm]); // Dependencies are correct
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tickets, searchTerm]); // Dependencies ARE correct here for filtering
 
-  const paginatedTickets = useMemo((): TicketWithDetails[] => {
-    // Explicit Return Type
-    // Safety check for input array
+  const paginatedTickets = useMemo((): TicketListItem[] => {
+    // Safety check
     if (!Array.isArray(filteredTickets)) {
       console.warn("CustomerTicketList: 'filteredTickets' is not an array.");
-      return []; // MUST return an array matching the declared return type
+      return [];
     }
     const startIndex = (currentPage - 1) * entriesPerPage;
-    const endIndex = startIndex + entriesPerPage;
-    const results = filteredTickets.slice(startIndex, endIndex);
-    return results; // Return the sliced array
-  }, [filteredTickets, currentPage, entriesPerPage]); // Dependencies are correct
+    return filteredTickets.slice(startIndex, startIndex + entriesPerPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredTickets, currentPage, entriesPerPage]); // Dependencies ARE correct here for pagination
 
   // --- Calculations ---
-  // Use safety check for length property
-  const totalFilteredTickets = Array.isArray(filteredTickets)
-    ? filteredTickets.length
-    : 0;
+  const totalFilteredTickets = filteredTickets?.length ?? 0;
   const totalPages = Math.ceil(totalFilteredTickets / entriesPerPage);
   const startEntry =
     totalFilteredTickets > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0;
@@ -76,8 +93,9 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
     setSearchTerm(event.target.value);
     setCurrentPage(1);
   };
-  const handleEntriesChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setEntriesPerPage(Number(event.target.value));
+  const handleEntriesChange = (value: string) => {
+    // Changed signature for shadcn Select
+    setEntriesPerPage(Number(value));
     setCurrentPage(1);
   };
   const handlePreviousPage = () => {
@@ -89,171 +107,152 @@ export const CustomerTicketList: React.FC<CustomerTicketListProps> = ({
 
   // --- JSX Rendering ---
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between p-4 border-b border-gray-200 gap-4">
-        <div className="flex items-center space-x-2">
-          <label
+    <Card>
+      {/* Header with Filters */}
+      <CardHeader className="flex flex-col md:flex-row items-center justify-between gap-4 p-4">
+        {/* Entries per page */}
+        <div className="flex items-center space-x-2 w-full md:w-auto">
+          <Label
             htmlFor="entries"
-            className="text-sm text-gray-600 whitespace-nowrap"
+            className="text-sm text-muted-foreground whitespace-nowrap"
           >
             Show
-          </label>
-          <select
-            id="entries"
-            name="entries"
-            value={entriesPerPage}
-            onChange={handleEntriesChange}
-            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          </Label>
+          <Select
+            value={String(entriesPerPage)}
+            onValueChange={handleEntriesChange}
           >
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-          <span className="text-sm text-gray-600">entries</span>
+            <SelectTrigger id="entries" className="w-[80px]">
+              <SelectValue placeholder="Entries" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="25">25</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-muted-foreground">entries</span>
         </div>
-        <div className="flex items-center space-x-2">
-          <label htmlFor="search" className="text-sm text-gray-600">
-            Search:
-          </label>
-          <input
+        {/* Search */}
+        <div className="relative w-full md:w-auto">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Label htmlFor="search" className="sr-only">
+            Search Messages
+          </Label>
+          <Input
             type="search"
             id="search"
             name="search"
             value={searchTerm}
             onChange={handleSearchChange}
-            placeholder="Search messages..."
-            className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Search by Subject, ID, Status..."
+            className="pl-8 w-full md:w-[250px]"
           />
         </div>
-      </div>
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th
-                scope="col"
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Subject / Title
-              </th>
-              <th
-                scope="col"
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Status
-              </th>
-              <th
-                scope="col"
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Date Created
-              </th>
-              <th
-                scope="col"
-                className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Total Messages
-              </th>
-              <th
-                scope="col"
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Last Update
-              </th>
-              <th
-                scope="col"
-                className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {Array.isArray(paginatedTickets) && paginatedTickets.length > 0 ? (
-              paginatedTickets.map((ticket: TicketWithDetails) => (
-                <tr
-                  key={ticket.id}
-                  className="hover:bg-gray-50 transition-colors duration-150"
-                >
-                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-800">
-                    {ticket.title}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm">
-                    <StatusBadge status={ticket.status} />
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                    {format(new Date(ticket.createdAt), "yyyy-MM-dd HH:mm")}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-500">
-                    {(ticket._count?.messages ?? 0) + 1}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                    {ticket.messages?.[0]?.createdAt
-                      ? formatDistanceToNowStrict(
-                          new Date(ticket.messages[0].createdAt),
-                          { addSuffix: true },
-                        )
-                      : formatDistanceToNowStrict(new Date(ticket.createdAt), {
-                          addSuffix: true,
-                        })}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
-                    <Link href={`/customer/mymessages/${ticket.id}`} passHref>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        aria-label={`View ticket ${ticket.title}`}
-                        className="text-blue-600 border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-6 py-10 text-center text-sm text-gray-500"
-                >
-                  You haven&apos;t submitted any support messages yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      {/* Footer */}
-      <div className="flex flex-wrap items-center justify-between p-4 border-t border-gray-200 gap-4">
-        <div className="text-sm text-gray-600">
+      </CardHeader>
+
+      {/* Table Area */}
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Subject / Title</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Date Created</TableHead>
+                <TableHead className="text-center">Total Messages</TableHead>
+                <TableHead>Last Update</TableHead>
+                <TableHead className="text-center">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedTickets.length > 0 ? (
+                paginatedTickets.map(
+                  (
+                    ticket, // Type is TicketListItem
+                  ) => (
+                    <TableRow key={ticket.id}>
+                      <TableCell className="font-medium">
+                        {ticket.title}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={ticket.status} />
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {format(new Date(ticket.createdAt), "yyyy-MM-dd HH:mm")}
+                      </TableCell>
+                      <TableCell className="text-center text-muted-foreground">
+                        {(ticket._count?.messages ?? 0) + 1}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {/* Use optional chaining ?. for safety */}
+                        {ticket.messages?.[0]?.createdAt
+                          ? formatDistanceToNowStrict(
+                              new Date(ticket.messages[0].createdAt),
+                              { addSuffix: true },
+                            )
+                          : formatDistanceToNowStrict(
+                              new Date(ticket.createdAt),
+                              { addSuffix: true },
+                            )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/customer/mymessages/${ticket.id}`}>
+                            <Eye className="h-4 w-4 mr-1" /> View
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ),
+                )
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="h-24 text-center text-muted-foreground"
+                  >
+                    {searchTerm
+                      ? "No messages match your search."
+                      : "You haven't submitted any support messages yet."}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+
+      {/* Footer with Pagination */}
+      <CardFooter className="flex flex-wrap items-center justify-between p-4 gap-4">
+        <div className="text-sm text-muted-foreground">
           Showing {startEntry} to {endEntry} of {totalFilteredTickets} entries
         </div>
-        <div className="flex items-center space-x-1">
-          <button
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handlePreviousPage}
             disabled={currentPage === 1}
-            className="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
           >
-            Previous
-          </button>
-          <span className="px-3 py-1 border border-blue-500 bg-blue-500 text-white rounded-md text-sm font-medium">
-            {currentPage}
-          </span>
-          <button
+            {" "}
+            Previous{" "}
+          </Button>
+          {/* Optional: Display current page / total pages */}
+          {/* <span className="text-sm font-medium px-2">{currentPage} / {totalPages}</span> */}
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleNextPage}
             disabled={currentPage === totalPages || totalPages === 0}
-            className="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
           >
-            Next
-          </button>
+            {" "}
+            Next{" "}
+          </Button>
         </div>
-      </div>
-    </div>
+      </CardFooter>
+    </Card>
   );
 };
 

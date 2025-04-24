@@ -1,9 +1,30 @@
+// app/(customer)/orders/_components/OrderTable.tsx
 "use client";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { formatDistance } from "date-fns";
 import { OrderStatus } from "@prisma/client";
-import { OrderTableProps, OrderWithItems } from "../types";
+import { OrderTableProps, OrderWithItems } from "../types"; // Adjust path if needed
 import OrderDetailModal from "./OrderDetailModal";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge, type BadgeProps } from "@/components/ui/badge"; // Import BadgeProps type
+import { Search, Calendar as CalendarIcon, Eye } from "lucide-react"; // Added Eye icon
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Use Card for structure
 
 const OrderTable: React.FC<OrderTableProps> = ({ orders }) => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -14,295 +35,227 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders }) => {
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Helper function to get status badge color
-  const getStatusColor = (status: OrderStatus) => {
+  // Status Badge Variants using AVAILABLE shadcn Badge component variants
+  const getStatusVariant = (status: OrderStatus): BadgeProps["variant"] => {
+    // Use BadgeProps['variant'] for type safety
     switch (status) {
       case OrderStatus.PENDING:
-        return "bg-yellow-100 text-yellow-800";
+        return "secondary"; // Use secondary for yellow-ish/grey
       case OrderStatus.PROCESSING:
-        return "bg-blue-100 text-blue-800";
+        return "default"; // Use default (primary theme color) for blue-ish
       case OrderStatus.SHIPPED:
-        return "bg-indigo-100 text-indigo-800";
+        return "secondary"; // Use secondary for indigo-ish/grey
       case OrderStatus.DELIVERED:
-        return "bg-green-100 text-green-800";
+        return "default"; // Consider 'success' variant if you added it, otherwise 'default' or 'secondary'
       case OrderStatus.CANCELLED:
-        return "bg-red-100 text-red-800";
+        return "destructive"; // Use destructive for red
       case OrderStatus.REFUNDED:
-        return "bg-orange-100 text-orange-800";
+        return "outline"; // Use outline for orange-ish/neutral
       default:
-        return "bg-gray-100 text-gray-800";
+        return "outline"; // Fallback to outline
     }
   };
 
-  // Format currency to South African Rand
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-ZA", {
       style: "currency",
       currency: "ZAR",
     }).format(amount);
   };
-
-  // Helper function to get product name correctly
   const getProductName = (item: any) => {
-    if (item?.variation?.product?.productName) {
+    if (item?.variation?.product?.productName)
       return item.variation.product.productName;
-    } else if (item?.variation?.productName) {
-      return item.variation.productName;
-    } else if (item?.variation?.product?.name) {
-      return item.variation.product.name;
-    } else if (item?.variation?.name) {
-      return item.variation.name;
-    } else {
-      return "Unnamed Product";
-    }
+    if (item?.variation?.productName) return item.variation.productName;
+    if (item?.variation?.product?.name) return item.variation.product.name;
+    if (item?.variation?.name) return item.variation.name;
+    return "Unnamed Product";
   };
-
-  // Handle view details click
   const handleViewDetails = (order: OrderWithItems) => {
     setSelectedOrder(order);
     setIsModalOpen(true);
   };
-
-  // Close modal
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    setSelectedOrder(null);
   };
 
-  // Filter orders based on search, status, and date
-  const filteredOrders = orders.filter((order) => {
-    // Filter by search query (including product names)
-    const searchMatch =
-      searchQuery === "" ||
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.referenceNumber
-        ?.toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      order.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      // Search in order items for product name
-      order.orderItems.some((item) => {
-        const productName = getProductName(item);
-        return productName.toLowerCase().includes(searchQuery.toLowerCase());
-      });
+  // Filtering logic
+  const filteredOrders = useMemo(
+    () =>
+      orders?.filter((order) => {
+        const searchLower = searchQuery.toLowerCase();
+        const searchMatch =
+          !searchQuery ||
+          order.id.toLowerCase().includes(searchLower) ||
+          order.referenceNumber?.toLowerCase().includes(searchLower) ||
+          `${order.firstName} ${order.lastName}`
+            .toLowerCase()
+            .includes(searchLower) ||
+          order.companyName?.toLowerCase().includes(searchLower) ||
+          order.email.toLowerCase().includes(searchLower) ||
+          order.orderItems.some((item) =>
+            getProductName(item).toLowerCase().includes(searchLower),
+          );
 
-    // Filter by status
-    const statusMatch = statusFilter === "ALL" || order.status === statusFilter;
+        const statusMatch =
+          statusFilter === "ALL" || order.status === statusFilter;
+        // Ensure date comparison handles potential timezone issues if necessary
+        const dateMatch =
+          !startDate ||
+          new Date(order.createdAt).toLocaleDateString() ===
+            new Date(startDate + "T00:00:00").toLocaleDateString();
 
-    // Filter by date (single date)
-    const dateMatch =
-      !startDate ||
-      new Date(order.createdAt).toDateString() ===
-        new Date(startDate).toDateString();
-
-    return searchMatch && statusMatch && dateMatch;
-  });
+        return searchMatch && statusMatch && dateMatch;
+      }) ?? [],
+    [orders, searchQuery, statusFilter, startDate],
+  ); // Added dependencies
 
   if (!orders || orders.length === 0) {
     return (
-      <div className="text-center py-10">
-        <h3 className="text-lg font-medium">No orders found</h3>
-        <p className="mt-2 text-gray-500">
-          You haven&apos;t placed any orders yet.
-        </p>
-      </div>
+      <Card className="text-center py-10">
+        <CardHeader>
+          <CardTitle className="text-lg">No orders found</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mt-2 text-muted-foreground">
+            You haven&apos;t placed any orders yet.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Filters row */}
-      <div className="flex flex-col md:flex-row gap-3">
-        {/* Search input */}
-        <div className="relative w-full md:w-1/3">
-          <label htmlFor="order-search" className="sr-only">
-            Search orders
-          </label>
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <svg
-              className="w-4 h-4 text-gray-500"
-              aria-hidden="true"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 20 20"
-            >
-              <path
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"
-              />
-            </svg>
-          </div>
-          <input
-            id="order-search"
-            type="text"
-            className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5"
-            placeholder="Search orders..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        {/* Status filter */}
-        <div className="w-full md:w-1/3">
-          <label htmlFor="status-filter" className="sr-only">
-            Filter by status
-          </label>
-          <select
-            id="status-filter"
-            aria-label="Filter orders by status"
-            className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as OrderStatus | "ALL")
-            }
-          >
-            <option value="ALL">Filter by status</option>
-            {Object.values(OrderStatus).map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Date filter */}
-        <div className="w-full md:w-1/3">
-          <label htmlFor="date-filter" className="sr-only">
-            Pick a date
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg
-                className="w-5 h-5 text-gray-500"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-            </div>
-            <input
-              id="date-filter"
-              type="date"
-              aria-label="Filter orders by date"
-              className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 pr-10"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              placeholder="Pick a date range"
+    <div className="space-y-6">
+      {/* Filters using shadcn components */}
+      <Card>
+        <CardContent className="p-4 flex flex-col md:flex-row gap-3">
+          <div className="relative w-full md:flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="order-search"
+              type="search"
+              placeholder="Search orders by ID, name, product..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 bg-background" // Use theme background
             />
           </div>
-        </div>
-      </div>
+          <div className="w-full md:w-auto">
+            <Select
+              value={statusFilter}
+              onValueChange={(value) =>
+                setStatusFilter(value as OrderStatus | "ALL")
+              }
+            >
+              <SelectTrigger className="w-full md:w-[180px] bg-background">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                {Object.values(OrderStatus).map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="relative w-full md:w-auto">
+            <CalendarIcon className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="date-filter"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              placeholder="Filter by date"
+              className="bg-background pr-8"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {filteredOrders.length === 0 ? (
-        <div className="text-center py-10">
-          <h3 className="text-lg font-medium">No orders found</h3>
-          <p className="mt-2 text-gray-500">
-            Try adjusting your filters to find what you&apos;re looking for.
-          </p>
-        </div>
+        <Card className="text-center py-10">
+          <CardHeader>
+            <CardTitle className="text-lg">No orders match filters</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mt-2 text-muted-foreground">
+              Try adjusting your filters.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Order ID
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Date
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Status
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Total
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Items
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+        <Card className="overflow-hidden">
+          {" "}
+          {/* Card provides background and border */}
+          {/* Use shadcn Table */}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[120px]">Order ID</TableHead>{" "}
+                {/* Adjusted width */}
+                <TableHead>Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Items</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filteredOrders.map((order) => (
-                <tr key={order.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {order.id.substring(0, 8)}...
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div>{new Date(order.createdAt).toLocaleDateString()}</div>
-                    <div className="text-xs text-gray-400">
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">
+                    #{order.id.substring(0, 8)}...
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
                       {formatDistance(new Date(order.createdAt), new Date(), {
                         addSuffix: true,
                       })}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                        order.status,
-                      )}`}
-                    >
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusVariant(order.status)}>
                       {order.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm">
                     {formatCurrency(order.totalAmount)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-normal text-sm text-gray-500">
-                    <div className="max-w-xs">
+                  </TableCell>
+                  <TableCell className="max-w-[200px] text-xs">
+                    {" "}
+                    {/* Limit width */}
+                    <div className="truncate space-y-0.5">
+                      {" "}
+                      {/* Truncate and less spacing */}
                       {order.orderItems.map((item, index) => (
-                        <div key={item.id} className={index > 0 ? "mt-1" : ""}>
+                        <div key={item.id}>
                           <span className="font-medium">{item.quantity}×</span>{" "}
                           {getProductName(item)}
                         </div>
                       ))}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => handleViewDetails(order)}
-                      className="text-indigo-600 hover:text-indigo-900 font-medium"
                     >
-                      View Details
-                    </button>
-                  </td>
-                </tr>
+                      <Eye className="mr-1 h-3.5 w-3.5" /> View{" "}
+                      {/* Added Icon */}
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       {/* Order Detail Modal */}

@@ -1,287 +1,288 @@
+// app/(customer)/support/_components/SupportForm.tsx
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Paperclip } from "lucide-react";
-import { useRouter } from "next/navigation"; // Import useRouter
-import toast from "react-hot-toast"; // Import toast
-import { submitSupportRequest } from "../_actions/submit-support-request";
-import { useSession } from "@/app/(customer)/SessionProvider";
+import { Paperclip, Loader2 } from "lucide-react"; // Use Loader2 for consistency
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast"; // Or sonner
+import { submitSupportRequest } from "../_actions/submit-support-request"; // Adjust path if needed
+import { useSession } from "@/app/(customer)/SessionProvider"; // Adjust path if needed
 
-interface SupportFormProps {}
+// Import shadcn/ui components
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // For displaying errors/messages
 
-export default function SupportForm({}: SupportFormProps) {
+// interface SupportFormProps {} // Not needed if no props
+
+export default function SupportForm() {
+  // Removed props
   const { user } = useSession();
   const formRef = useRef<HTMLFormElement>(null);
-  const router = useRouter(); // Initialize router
-
-  // ... (state variables remain the same: title, name, email, message, attachment, etc.) ...
-  const [title, setTitle] = useState("");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
+  const router = useRouter();
   const [attachment, setAttachment] = useState<File | null>(null);
   const [attachmentName, setAttachmentName] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<{
-    type: "success" | "error" | null;
-    message: string;
-  }>({ type: null, message: "" });
+  const [submitError, setSubmitError] = useState<string | null>(null); // State for inline error message
 
-  // ... (useEffect for name/email remains the same) ...
+  // Auto-fill name/email effect (keep using formRef for this uncontrolled approach)
   useEffect(() => {
-    if (user) {
+    if (user && formRef.current) {
+      const nameInput = formRef.current.elements.namedItem(
+        "name",
+      ) as HTMLInputElement;
+      const emailInput = formRef.current.elements.namedItem(
+        "email",
+      ) as HTMLInputElement;
       const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim();
-      setName(fullName || user.username || "");
-      setEmail(user.email || "");
-    } else {
-      setName("");
-      setEmail("");
+      if (nameInput) nameInput.value = fullName || user.username || "";
+      if (emailInput) emailInput.value = user.email || "";
     }
   }, [user]);
 
-  // ... (handleFileChange, handleAttachmentClick remain the same) ...
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Basic client-side validation (optional, server validates too)
+      const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+      const ALLOWED_TYPES = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+      ];
+      if (file.size > MAX_SIZE) {
+        toast.error("File is too large (Max 5MB).");
+        event.target.value = ""; // Clear selection
+        return;
+      }
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        toast.error("Invalid file type. Only images are allowed.");
+        event.target.value = ""; // Clear selection
+        return;
+      }
       setAttachment(file);
       setAttachmentName(file.name);
     } else {
       setAttachment(null);
       setAttachmentName("");
     }
+    // Clear file input value to allow re-selecting same file later if needed
+    // Note: setting event.target.value = '' here prevents showing the name in the native input,
+    // but we use state (attachmentName) to display it anyway.
+    event.target.value = "";
   };
+
   const handleAttachmentClick = () => {
     document.getElementById("support-attachment-input")?.click();
   };
 
-  // --- UPDATED handleSubmit ---
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setIsSubmitting(true);
-    setSubmitStatus({ type: null, message: "" }); // Clear previous status message on new submit
+    setSubmitError(null); // Clear previous inline error on new submit
 
     if (!user || !formRef.current) {
-      setSubmitStatus({
-        type: "error",
-        message: !user ? "You must be logged in." : "Form error.",
-      });
-      setIsSubmitting(false);
+      toast.error(!user ? "You must be logged in." : "Form error.");
       return;
     }
-
+    setIsSubmitting(true);
     const formData = new FormData(formRef.current);
-
-    // Display pending toast
     const loadingToastId = toast.loading("Sending message...");
 
     try {
       const result = await submitSupportRequest(formData);
-
-      toast.dismiss(loadingToastId); // Dismiss loading toast
+      toast.dismiss(loadingToastId);
 
       if (result.success) {
-        // Show success toast
-        toast.success("Message Sent Successfully!", { duration: 2000 }); // Show for 2 seconds
-
-        // Reset form using ref after successful submission
-        if (formRef.current) {
-          formRef.current.reset();
-          // Clear state associated with form that reset doesn't handle (file)
-          setAttachment(null);
-          setAttachmentName("");
-          setTitle(""); // Also clear controlled state
-          setMessage("");
-          // Re-populate name/email if needed (useEffect might handle this)
-          if (user) {
-            const fullName =
-              `${user.firstName || ""} ${user.lastName || ""}`.trim();
-            setName(fullName || user.username || "");
-            setEmail(user.email || "");
-          }
+        toast.success("Message Sent Successfully!", { duration: 2000 });
+        formRef.current?.reset(); // Reset native form fields
+        setAttachment(null);
+        setAttachmentName(""); // Clear file state
+        // Re-populate name/email based on user after reset
+        if (user && formRef.current) {
+          const nameInput = formRef.current.elements.namedItem(
+            "name",
+          ) as HTMLInputElement;
+          const emailInput = formRef.current.elements.namedItem(
+            "email",
+          ) as HTMLInputElement;
+          const fullName =
+            `${user.firstName || ""} ${user.lastName || ""}`.trim();
+          if (nameInput) nameInput.value = fullName || user.username || "";
+          if (emailInput) emailInput.value = user.email || "";
         }
-
-        // Redirect after a delay (matching toast duration)
         setTimeout(() => {
-          router.push("/customer/mymessages"); // Redirect to the messages list
-          // Optionally refresh data if needed, though push usually triggers reload
-          // router.refresh(); // Use if you want to force a data refresh
-        }, 2000); // 2 second delay
+          router.push("/customer/mymessages");
+        }, 2000);
       } else {
-        // Show error toast from server action message
         toast.error(result.message || "Failed to send message.");
-        // Also update the local error state if you still want the inline message
-        setSubmitStatus({ type: "error", message: result.message });
+        setSubmitError(result.message || "Failed to send message."); // Set inline error state
+        setIsSubmitting(false); // Stop loading on error
       }
     } catch (error) {
-      toast.dismiss(loadingToastId); // Dismiss loading toast on error too
+      toast.dismiss(loadingToastId);
       console.error("Error calling submitSupportRequest action:", error);
       const errorMsg = "An unexpected error occurred submitting the form.";
       toast.error(errorMsg);
-      setSubmitStatus({ type: "error", message: errorMsg });
-    } finally {
-      // Ensure submitting state is always turned off
-      // We delay this slightly if redirecting on success
-      if (submitStatus.type !== "success") {
-        setIsSubmitting(false);
-      } else {
-        // Keep submitting appearance until redirect happens
-        // setIsSubmitting will effectively be false on next render anyway
-      }
+      setSubmitError(errorMsg); // Set inline error state
+      setIsSubmitting(false); // Stop loading on error
     }
-  }; // End of handleSubmit
+    // Removed finally block as success path redirects, error path sets isSubmitting=false
+  };
 
-  // --- JSX Rendering (mostly the same, ensure error message display uses submitStatus) ---
   return (
-    <div className="max-w-xl mx-auto p-6 md:p-8 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-semibold mb-6 text-gray-800 text-center">
-        Contact Support
-      </h2>
-      <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
-        {/* ... Input fields for title, name, email, message ... */}
-        {/* Title Input */}
-        <div>
-          <label
-            htmlFor="title"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Subject / Title <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            id="title"
-            name="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring focus:ring-teal-500 focus:ring-opacity-50 sm:text-sm px-3 py-2 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            placeholder="e.g., Issue with order #12345"
-            disabled={!user || isSubmitting}
-          />
-        </div>
-        {/* Name Input */}
-        <div>
-          <label
-            htmlFor="name"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Your Name <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring focus:ring-teal-500 focus:ring-opacity-50 sm:text-sm px-3 py-2 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            aria-label="Your name"
-            disabled={!user || isSubmitting}
-          />
-        </div>
-        {/* Email Input */}
-        <div>
-          <label
-            htmlFor="email"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Your Email <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring focus:ring-teal-500 focus:ring-opacity-50 sm:text-sm px-3 py-2 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            aria-label="Your email"
-            disabled={!user || isSubmitting}
-          />
-        </div>
-        {/* Message Textarea */}
-        <div>
-          <label
-            htmlFor="message"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Your Message <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            id="message"
-            name="message"
-            rows={5}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring focus:ring-teal-500 focus:ring-opacity-50 sm:text-sm px-3 py-2 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            placeholder="Please describe your issue or question in detail..."
-            disabled={!user || isSubmitting}
-          ></textarea>
-        </div>
+    // Use Card component for background, border, padding, shadow
+    <Card className="max-w-xl mx-auto">
+      <CardHeader>
+        {/* Use CardTitle, ensure text color uses theme */}
+        <CardTitle className="text-2xl text-center font-semibold">
+          Contact Support
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {/* Form uses semantic spacing */}
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
+          {/* Title Input */}
+          <div className="space-y-1.5">
+            {/* Use shadcn Label, automatically gets dark mode styling */}
+            <Label htmlFor="title">
+              Subject / Title <span className="text-destructive">*</span>
+            </Label>
+            {/* Use shadcn Input, automatically gets dark mode styling */}
+            <Input
+              id="title"
+              name="title"
+              required
+              placeholder="e.g., Issue with order #12345"
+              disabled={!user || isSubmitting}
+            />
+          </div>
 
-        {/* Attachment Section */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Attachment (Optional - Max 5MB Image)
-          </label>
-          <input
-            type="file"
-            id="support-attachment-input"
-            name="attachment"
-            className="hidden"
-            onChange={handleFileChange}
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            disabled={!user || isSubmitting}
-            aria-label="Attach an optional image file for the support request (Max 5MB)"
-          />
-          <button
-            type="button"
-            onClick={handleAttachmentClick}
-            disabled={!user || isSubmitting}
-            className="mt-1 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Paperclip className="mr-2 -ml-0.5 h-4 w-4" aria-hidden="true" />
-            {attachmentName ? "Change File" : "Attach File"}
-          </button>
-          {attachmentName && (
-            <span className="ml-3 text-sm text-gray-600 truncate max-w-xs inline-block align-middle">
-              {attachmentName}
-            </span>
+          {/* Name Input */}
+          <div className="space-y-1.5">
+            <Label htmlFor="name">
+              Your Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="name"
+              name="name"
+              required
+              disabled={!user || isSubmitting}
+              // Use defaultValue for uncontrolled components populated by useEffect
+              defaultValue={
+                user
+                  ? `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+                    user.username ||
+                    ""
+                  : ""
+              }
+            />
+          </div>
+
+          {/* Email Input */}
+          <div className="space-y-1.5">
+            <Label htmlFor="email">
+              Your Email <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              required
+              disabled={!user || isSubmitting}
+              defaultValue={user?.email ?? ""}
+            />
+          </div>
+
+          {/* Message Textarea */}
+          <div className="space-y-1.5">
+            <Label htmlFor="message">
+              Your Message <span className="text-destructive">*</span>
+            </Label>
+            {/* Use shadcn Textarea */}
+            <Textarea
+              id="message"
+              name="message"
+              rows={5}
+              required
+              placeholder="Please describe your issue or question in detail..."
+              disabled={!user || isSubmitting}
+            />
+          </div>
+
+          {/* Attachment Section */}
+          <div className="space-y-1.5">
+            <Label>Attachment (Optional - Max 5MB Image)</Label>
+            {/* Hidden native input remains */}
+            <Input
+              type="file"
+              id="support-attachment-input"
+              name="attachment"
+              className="hidden"
+              onChange={handleFileChange}
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              disabled={!user || isSubmitting}
+              aria-label="Attach an optional image file (Max 5MB)"
+            />
+            {/* Use shadcn Button for attach trigger */}
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline" // Use outline variant
+                onClick={handleAttachmentClick}
+                disabled={!user || isSubmitting}
+              >
+                <Paperclip className="mr-2 h-4 w-4" aria-hidden="true" />
+                {attachmentName ? "Change File" : "Attach File"}
+              </Button>
+              {/* Display file name using theme text color */}
+              {attachmentName && (
+                <span className="text-sm text-muted-foreground truncate">
+                  {attachmentName}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <div>
+            {/* Use shadcn Button, primary color is default */}
+            <Button
+              type="submit"
+              disabled={!user || isSubmitting}
+              className="w-full"
+            >
+              {isSubmitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {isSubmitting ? "Sending..." : "Send Message"}
+            </Button>
+          </div>
+
+          {/* Inline Status Message Area using Alert */}
+          {submitError && (
+            <Alert variant="destructive" role="alert">
+              {/* Optional AlertTitle */}
+              <AlertDescription>{submitError}</AlertDescription>
+            </Alert>
           )}
-        </div>
 
-        {/* Submit Button */}
-        <div>
-          <button
-            type="submit"
-            disabled={!user || isSubmitting}
-            className="w-full py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-in-out"
-          >
-            {isSubmitting ? "Sending..." : "Send Message"}
-          </button>
-        </div>
-
-        {/* Inline Status Message Area - Still useful for persistent errors */}
-        {submitStatus.type === "error" && ( // Only show inline message for errors now
-          <div
-            className={`mt-4 p-3 rounded-md text-sm bg-red-100 text-red-800`}
-            role="alert"
-          >
-            {submitStatus.message}
-          </div>
-        )}
-
-        {/* Login Prompt */}
-        {!user && (
-          <div
-            className="mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-800 text-center"
-            role="alert"
-          >
-            {" "}
-            Please log in to submit a support request.{" "}
-          </div>
-        )}
-      </form>
-    </div>
+          {/* Login Prompt using Alert */}
+          {!user && (
+            <Alert
+              variant="default"
+              className="bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 text-center"
+            >
+              <AlertDescription>
+                Please log in to submit a support request.
+              </AlertDescription>
+            </Alert>
+          )}
+        </form>
+      </CardContent>
+    </Card>
   );
-} // End component
+}
