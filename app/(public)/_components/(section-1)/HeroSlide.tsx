@@ -1,5 +1,7 @@
-"use client";
-import React, { useState, useEffect, useCallback } from "react";
+// app/(public)/_components/(section-1)/HeroSlide.tsx
+"use client"; // <--- Added "use client"
+import React from "react"; // <--- Added React import
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, Plus, Pencil, Trash } from "lucide-react";
 import { toast } from "sonner";
@@ -51,29 +53,38 @@ const HeroSlider: React.FC<HeroSliderProps> = ({
     isAddModalOpen || isEditModalOpen || isDeleteModalOpen || isDeleting;
 
   useEffect(() => {
-    if (!isInitialized && initialSlides?.length > 0) {
+    // Simplified initialization: If not initialized and initialSlides exist, set them.
+    if (!isInitialized && initialSlides && initialSlides.length > 0) {
       setSlides(initialSlides);
       setIsInitialized(true);
+    } else if (!isInitialized && slides.length > 0) {
+      // Also initialize if store already has slides (e.g., hydration)
+      setIsInitialized(true);
     }
-  }, [initialSlides, setSlides, isInitialized]);
+  }, [initialSlides, setSlides, isInitialized, slides.length]); // Added slides.length
+
+  // Use the slides from the store for calculations
+  const totalSlotsToShow = isEditor
+    ? Math.min(Math.max(EMPTY_SLOTS, slides.length), MAX_SLIDES)
+    : Math.max(0, slides.length); // Non-editors only see existing slides
 
   const nextSlide = useCallback(() => {
-    const totalSlides = Math.max(slides.length, EMPTY_SLOTS);
-    setCurrentSlide((current) => (current + 1) % totalSlides);
-  }, [slides.length]);
+    if (totalSlotsToShow <= 1) return;
+    setCurrentSlide((current) => (current + 1) % totalSlotsToShow);
+  }, [totalSlotsToShow]);
 
   const prevSlide = useCallback(() => {
-    const totalSlides = Math.max(slides.length, EMPTY_SLOTS);
-    setCurrentSlide((current) =>
-      current === 0 ? totalSlides - 1 : current - 1,
+    if (totalSlotsToShow <= 1) return;
+    setCurrentSlide(
+      (current) => (current - 1 + totalSlotsToShow) % totalSlotsToShow,
     );
-  }, [slides.length]);
+  }, [totalSlotsToShow]);
 
   useEffect(() => {
-    if (!autoPlay || isLoading || isModalOpen) return;
+    if (!autoPlay || isLoading || isModalOpen || totalSlotsToShow <= 1) return;
     const timer = setInterval(nextSlide, interval);
     return () => clearInterval(timer);
-  }, [autoPlay, interval, nextSlide, isLoading, isModalOpen]);
+  }, [autoPlay, interval, nextSlide, isLoading, isModalOpen, totalSlotsToShow]); // Added totalSlotsToShow
 
   const handleSuccess = useCallback(() => {
     setIsAddModalOpen(false);
@@ -81,222 +92,312 @@ const HeroSlider: React.FC<HeroSliderProps> = ({
     setIsDeleteModalOpen(false);
     setTargetIndex(null);
   }, []);
-
   const handleAddClick = useCallback((index: number) => {
     setCurrentSlide(index);
     setTargetIndex(index);
     setTimeout(() => {
       setIsAddModalOpen(true);
-    }, 500); // Wait for slide transition to complete
+    }, 100); // Reduced delay
   }, []);
+  const handleDeleteConfirm = async () => {
+    // Original delete logic - ensure it updates state correctly
+    try {
+      setIsDeleting(true);
+      const slide = slides[currentSlide];
+      if (!slide) return;
+      const result = await deleteSlide(slide.id);
+      if (result.success) {
+        toast.success("Slide deleted successfully");
+        const newLength = slides.length - 1;
+        if (currentSlide >= newLength) {
+          setCurrentSlide(Math.max(0, newLength - 1));
+        }
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete slide",
+      );
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+    }
+  };
 
-  if (isLoading && !isEditor) {
+  // Loading State (Use Theme colors)
+  if (isLoading && !isInitialized) {
     return (
-      <div className="relative w-screen h-[300px] bg-gray-100 flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 my-6">
+        <div className="relative w-full h-[300px] bg-muted rounded-lg flex items-center justify-center">
+          <p className="text-muted-foreground">Loading Slides...</p>
+        </div>
       </div>
     );
   }
 
-  const totalSlotsToShow = isEditor
-    ? Math.min(Math.max(EMPTY_SLOTS, slides.length), MAX_SLIDES)
-    : Math.max(1, slides.length);
+  // Empty State (Non-editor)
+  if (slides.length === 0 && !isEditor) {
+    return null;
+  }
 
+  // Editor Empty State
+  if (slides.length === 0 && isEditor) {
+    return (
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 my-6">
+        <div className="relative w-full h-[300px] overflow-hidden rounded-lg bg-muted">
+          <div className="absolute top-2 right-2 z-20 bg-black/50 rounded-md p-1.5 space-x-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-white hover:bg-white/20 hover:text-white"
+              onClick={() => handleAddClick(0)}
+              aria-label="Add new slide"
+            >
+              {" "}
+              <Plus className="w-4 h-4" />{" "}
+            </Button>
+          </div>
+          <div className="w-full h-full flex items-center justify-center">
+            <div
+              className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-border bg-muted hover:bg-accent transition-colors cursor-pointer"
+              onClick={() => handleAddClick(0)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === "Enter" && handleAddClick(0)}
+            >
+              <Plus className="w-10 h-10 text-muted-foreground mb-2" />
+              <p className="text-lg text-muted-foreground"> Add Slide 1 </p>
+            </div>
+          </div>
+        </div>
+        {isEditor && (
+          <AddSlideModal
+            isOpen={isAddModalOpen}
+            onClose={() => setIsAddModalOpen(false)}
+            onSuccess={handleSuccess}
+            targetIndex={targetIndex !== null ? targetIndex : 0}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // --- Main Render ---
   return (
-    <div className="relative w-screen h-[300px] overflow-hidden bg-gray-100">
-      {isEditor && (
-        <div className="absolute top-4 right-4 z-20 bg-black/50 rounded-lg p-2">
-          <div className="flex items-center gap-4">
+    // 1. Constrain Width & Add Margin
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 my-6">
+      {/* 2. Viewport Container */}
+      <div className="relative w-full h-[300px] overflow-hidden rounded-lg bg-muted">
+        {/* Editor Controls (Positioned absolutely) */}
+        {isEditor && (
+          <div className="absolute top-2 right-2 z-30 bg-black/50 rounded-md p-1.5 space-x-2">
             {slides.length < MAX_SLIDES && (
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-white hover:bg-white/20 hover:text-white"
                 onClick={() => handleAddClick(slides.length)}
-                className="hover:text-blue-400 transition-colors"
                 aria-label="Add new slide"
               >
-                <Plus className="w-5 h-5 text-white" />
-              </button>
+                {" "}
+                <Plus className="w-4 h-4" />{" "}
+              </Button>
             )}
             {slides[currentSlide] && (
               <>
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-white hover:bg-white/20 hover:text-white"
                   onClick={() => setIsEditModalOpen(true)}
-                  className="hover:text-blue-400 transition-colors"
                   aria-label="Edit current slide"
                 >
-                  <Pencil className="w-5 h-5 text-white" />
-                </button>
-                <button
+                  {" "}
+                  <Pencil className="w-4 h-4" />{" "}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-white hover:bg-destructive/80 hover:text-white"
                   onClick={() => setIsDeleteModalOpen(true)}
-                  className="hover:text-blue-400 transition-colors"
                   aria-label="Delete current slide"
                   disabled={isDeleting}
                 >
-                  <Trash className="w-5 h-5 text-white" />
-                </button>
+                  {" "}
+                  <Trash className="w-4 h-4" />{" "}
+                </Button>
               </>
             )}
           </div>
-        </div>
-      )}
-
-      <div className="w-[400%] h-full flex">
+        )}
+        {/* Track: Holds all slides */}
         <div
-          className={cn(
-            "w-full h-full flex transform transition-transform duration-500 ease-in-out",
-            currentSlide === 0 ? "-translate-x-0" : "",
-            currentSlide === 1 ? "-translate-x-1/4" : "",
-            currentSlide === 2 ? "-translate-x-2/4" : "",
-            currentSlide === 3 ? "-translate-x-3/4" : "",
-          )}
+          // Use original translate approach, but ensure track width is sufficient
+          className="h-full flex transition-transform duration-500 ease-in-out"
+          style={{
+            width: `${totalSlotsToShow * 100}%`, // Track width = N * 100%
+            transform: `translateX(-${(currentSlide / totalSlotsToShow) * 100}%)`,
+          }}
         >
+          {/* Map Slides */}
           {[...Array(totalSlotsToShow)].map((_, index) => {
             const slide = slides[index];
             return (
+              // Each Slide Item
               <div
                 key={slide ? slide.id : `empty-${index}`}
-                className="w-1/4 flex-shrink-0 h-full"
+                // Set width explicitly to fraction of TRACK width
+                className="h-full flex-shrink-0" // Prevent shrinking
+                style={{ width: `${100 / totalSlotsToShow}%` }}
+                role="group"
+                aria-roledescription="slide"
+                aria-label={`Slide ${index + 1}`}
               >
+                {/* Slide Content */}
                 {slide ? (
-                  <div className="relative w-full h-full flex flex-col items-center justify-center text-white">
+                  <div className="relative w-full h-full flex flex-col items-center justify-center text-white text-center p-4">
                     {slide.sliderImageurl && (
                       <Image
                         src={slide.sliderImageurl}
-                        alt={slide.title}
+                        alt={slide.title || "Slide background"}
                         fill
-                        priority
-                        className="object-cover"
+                        priority={index === 0}
+                        className="object-cover -z-10" // Ensure image is behind text overlay
                         sizes="100vw"
                       />
                     )}
-                    <div className="relative z-10">
-                      <h2 className="text-4xl font-bold mb-4">{slide.title}</h2>
-                      <p className="text-xl">{slide.description}</p>
+                    <div className="relative z-10 bg-black/40 p-4 rounded-md">
+                      <h2 className="text-2xl md:text-3xl font-bold mb-2">
+                        {slide.title}
+                      </h2>
+                      <p className="text-base md:text-lg">
+                        {slide.description}
+                      </p>
                     </div>
                   </div>
-                ) : isEditor && slides.length < MAX_SLIDES ? (
+                ) : isEditor ? (
+                  // Editor Empty Slot
                   <div
-                    className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+                    className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-border bg-muted hover:bg-accent transition-colors cursor-pointer"
                     onClick={() => handleAddClick(index)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleAddClick(index)
+                    }
                   >
-                    <Plus className="w-12 h-12 text-gray-400 mb-2" />
-                    <p className="text-xl text-gray-500">
-                      Add Slide {index + 1}
+                    <Plus className="w-10 h-10 text-muted-foreground mb-2" />
+                    <p className="text-lg text-muted-foreground">
+                      {" "}
+                      Add Slide {index + 1}{" "}
                     </p>
                   </div>
                 ) : null}
-              </div>
+              </div> // End Slide Item
             );
           })}
-        </div>
-      </div>
-
-      {!isModalOpen && (
-        <>
-          <button
-            onClick={prevSlide}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-black/20 hover:bg-black/40 transition-colors p-2 rounded-full text-white"
-            aria-label="Previous slide"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-          <button
-            onClick={nextSlide}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-black/20 hover:bg-black/40 transition-colors p-2 rounded-full text-white"
-            aria-label="Next slide"
-          >
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        </>
-      )}
-
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
-        {[...Array(totalSlotsToShow)].map((_, index) => (
-          <button
-            key={index}
-            onClick={() => setCurrentSlide(index)}
-            className={`w-3 h-3 rounded-full transition-colors ${
-              currentSlide === index
-                ? slides[index]
-                  ? "bg-white"
-                  : "bg-gray-600"
-                : slides[index]
-                  ? "bg-white/50"
-                  : "bg-gray-300"
-            }`}
-            aria-label={`Go to ${slides[index] ? "slide" : "empty slot"} ${index + 1}`}
-          />
-        ))}
-      </div>
-
-      <AddSlideModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSuccess={handleSuccess}
-        targetIndex={targetIndex !== null ? targetIndex : 0}
-      />
-
-      {isEditModalOpen && slides[currentSlide] && (
-        <EditSlideModal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          onSuccess={handleSuccess}
-          slide={slides[currentSlide]}
-        />
-      )}
-
-      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Delete</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this slide? This action cannot be
-              undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
+        </div>{" "}
+        {/* End Track */}
+        {/* Conditional Arrows (Inside relative container) */}
+        {isEditor && !isModalOpen && totalSlotsToShow > 1 && (
+          <>
             <Button
               variant="outline"
-              onClick={() => setIsDeleteModalOpen(false)}
-              disabled={isDeleting}
+              size="icon"
+              onClick={prevSlide}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-20 rounded-full h-8 w-8 bg-background/50 hover:bg-background/80 border-none text-foreground"
+              aria-label="Previous slide"
             >
-              Cancel
+              {" "}
+              <ChevronLeft className="h-5 w-5" />{" "}
             </Button>
             <Button
-              variant="destructive"
-              onClick={async () => {
-                try {
-                  setIsDeleting(true);
-                  const slide = slides[currentSlide];
-                  if (!slide) return;
-
-                  const result = await deleteSlide(slide.id);
-                  if (result.success) {
-                    toast.success("Slide deleted successfully");
-                    if (currentSlide >= slides.length - 1) {
-                      setCurrentSlide(Math.max(0, slides.length - 2));
-                    }
-                  } else {
-                    throw new Error(result.error);
-                  }
-                } catch (error) {
-                  toast.error(
-                    error instanceof Error
-                      ? error.message
-                      : "Failed to delete slide",
-                  );
-                } finally {
-                  setIsDeleting(false);
-                  setIsDeleteModalOpen(false);
-                }
-              }}
-              disabled={isDeleting}
+              variant="outline"
+              size="icon"
+              onClick={nextSlide}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-20 rounded-full h-8 w-8 bg-background/50 hover:bg-background/80 border-none text-foreground"
+              aria-label="Next slide"
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {" "}
+              <ChevronRight className="h-5 w-5" />{" "}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </>
+        )}
+      </div>{" "}
+      {/* End Viewport Relative Container */}
+      {/* Dots Container (Below viewport) */}
+      {totalSlotsToShow > 1 && (
+        <div className="flex justify-center space-x-2 mt-4">
+          {[...Array(totalSlotsToShow)].map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentSlide(index)}
+              className={cn(
+                "w-2.5 h-2.5 rounded-full transition-colors duration-300",
+                currentSlide === index
+                  ? "bg-primary"
+                  : "bg-primary/30 hover:bg-primary/50",
+              )}
+              aria-label={`Go to slide ${index + 1}`}
+              aria-current={currentSlide === index ? "true" : "false"}
+            />
+          ))}
+        </div>
+      )}
+      {/* Modals */}
+      {isEditor && (
+        <>
+          <AddSlideModal
+            isOpen={isAddModalOpen}
+            onClose={() => setIsAddModalOpen(false)}
+            onSuccess={handleSuccess}
+            targetIndex={targetIndex !== null ? targetIndex : 0}
+          />
+          {isEditModalOpen && slides[currentSlide] && (
+            <EditSlideModal
+              isOpen={isEditModalOpen}
+              onClose={() => setIsEditModalOpen(false)}
+              onSuccess={handleSuccess}
+              slide={slides[currentSlide]}
+            />
+          )}
+          <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+            {/* Delete Dialog Content */}
+            <DialogContent>
+              {" "}
+              <DialogHeader>
+                {" "}
+                <DialogTitle>Confirm Deletion</DialogTitle>{" "}
+                <DialogDescription>
+                  {" "}
+                  Are you sure you want to delete this slide? This cannot be
+                  undone.{" "}
+                </DialogDescription>{" "}
+              </DialogHeader>{" "}
+              <DialogFooter>
+                {" "}
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </Button>{" "}
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                >
+                  {" "}
+                  {isDeleting ? "Deleting..." : "Delete"}{" "}
+                </Button>{" "}
+              </DialogFooter>{" "}
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
+    </div> // End Outermost container
   );
 };
 
