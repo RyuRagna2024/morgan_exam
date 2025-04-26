@@ -1,3 +1,5 @@
+// app/(public)/_components/(section-1)/utils.ts
+
 import { Slide } from "./types";
 
 export const SLIDE_INTERVAL = 5000;

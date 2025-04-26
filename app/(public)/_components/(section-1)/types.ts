@@ -1,4 +1,6 @@
+// app/(public)/_components/(section-1)/types.ts
 // Base types that match the Prisma schema
+
 export interface Slide {
   id: string;
   sliderImageurl: string; // Added to match Prisma schema

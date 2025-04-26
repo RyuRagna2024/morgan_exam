@@ -1,3 +1,5 @@
+// app/(public)/_components/(section-1)/validations.ts
+
 import { z } from "zod";
 
 export const createSlideSchema = z.object({

@@ -1,4 +1,5 @@
-// _crud-actions/get-slides-actions.ts
+// app/(public)/_components/(section-1)/_crud-actions/get-slides-actions.ts
+
 "use server";
 
 import prisma from "@/lib/prisma";

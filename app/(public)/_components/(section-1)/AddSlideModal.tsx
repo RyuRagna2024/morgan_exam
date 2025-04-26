@@ -1,3 +1,5 @@
+// app/(public)/_components/(section-1)/AddSlideModal.tsx
+
 "use client";
 
 import { useForm } from "react-hook-form";

@@ -1,4 +1,5 @@
-// use-slide-store.ts
+// app/(public)/_components/(section-1)/_crud-actions/_store/use-slide-store.ts
+
 import { create } from "zustand";
 import { Slide, SlideResponse } from "../../types";
 import { createSlide } from "../action";
