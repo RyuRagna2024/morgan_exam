@@ -1,31 +1,66 @@
-// app/(manager)/_components/ManagerNavbar.tsx
+// app/(manager)_components/ManagerNavbar.tsx
 "use client";
 
-import UserButton from "./UserButton";
-// *** IMPORT TierBadge (assuming it's shared from public) ***
-import TierBadge from "@/app/(public)/_components/(navbar_group)/TierBadge";
-import { cn } from "@/lib/utils"; // Import cn if needed for badge container class
+import React, { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
+import UserButton from "./UserButton"; // Import UserButton specific to manager context if needed
+import TierBadge from "@/app/(public)/_components/(navbar_group)/TierBadge"; // Import shared TierBadge
+import { Sun, Moon } from "@/app/(public)/_components/(navbar_group)/NavIcons"; // Import shared icons
+import { cn } from "@/lib/utils"; // Import cn utility
 
-// Keep interface empty if no other props needed
 interface ManagerNavbarProps {}
 
 const ManagerNavbar: React.FC<ManagerNavbarProps> = () => {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+
+  // Helper to render the theme toggle button
+  const renderThemeToggleButton = () => {
+    if (!mounted) {
+      return (
+        <div
+          className="p-1 w-[calc(1.25rem+0.5rem)] h-[calc(1.25rem+0.5rem)]"
+          aria-hidden="true"
+        />
+      );
+    }
+    return (
+      <button
+        onClick={toggleTheme}
+        className="text-muted-foreground hover:text-foreground relative transition-colors p-1 rounded-full hover:bg-accent" // Use theme-aware colors
+        aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+      >
+        {theme === "dark" ? <Sun /> : <Moon />}
+      </button>
+    );
+  };
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-40 h-[88px] bg-neutral-900 text-white shadow-md border-b border-neutral-800">
-      <div className="flex items-center justify-end h-full mx-auto w-full py-6 px-8">
-        <div className="flex items-center space-x-6">
-          {/* *** CORRECTED STRUCTURE for UserButton + TierBadge *** */}
+    // Changed to sticky, use theme background/border
+    // Set a consistent height, e.g., h-16 (64px) or h-[70px]
+    <nav className="sticky top-0 z-30 h-16 shrink-0 bg-background text-foreground shadow-sm border-b border-border px-4 md:px-8">
+      <div className="flex items-center justify-end h-full w-full">
+        {" "}
+        {/* Ensure content aligns to end */}
+        <div className="flex items-center space-x-4">
+          {" "}
+          {/* Spacing for right-aligned items */}
+          {/* Theme Toggle Button */}
+          {renderThemeToggleButton()}
+          {/* UserButton + TierBadge Wrapper */}
           <div className="relative flex-shrink-0">
-            {" "}
-            {/* Wrap UserButton & Badge */}
-            {/* Render UserButton WITHOUT the user prop */}
+            {/* Ensure UserButton uses manager's session context */}
             <UserButton className="text-lg" />
-            {/* Position Badge absolutely relative to the wrapper */}
             <div className="absolute -bottom-1 -right-1 z-10">
               <TierBadge />
             </div>
           </div>
-          {/* *** End Corrected Structure *** */}
         </div>
       </div>
     </nav>

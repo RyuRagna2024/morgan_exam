@@ -7,64 +7,73 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription, // Optional: if you want description
-  DialogClose,
+  DialogDescription,
 } from "@/components/ui/dialog";
+// Use the SessionUser type defined specifically for the manager context
 import { SessionUser } from "../../SessionProvider";
+// Import the form component
 import AvatarUploadForm from "./AvatarUploadForm";
 
-// Simplify props: Only need user for initial URLs, open state, close handler, and the success callback
+// Props expected by this Modal component
 interface ProfileEditModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  user: SessionUser; // Expect non-null user when modal is open
-  onImagesUploaded: ( // Callback from ProfileSection
+  isOpen: boolean; // State to control modal visibility
+  onClose: () => void; // Function to close the modal
+  user: SessionUser; // The current user data (non-null when modal is open)
+  // Callback function passed from the parent (ProfileSection)
+  // This will be called by AvatarUploadForm via its own prop mechanism
+  onSuccess: (
     newAvatarUrl: string | null,
     newBackgroundUrl: string | null,
-  ) => void; // Changed return to void as ProfileSection handles state
+  ) => void;
 }
 
 const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   isOpen,
   onClose,
-  user,
-  onImagesUploaded,
+  user, // Receive user data
+  onSuccess, // Receive the success handler from ProfileSection
 }) => {
-  // No need to check user/isOpen here, Dialog handles open state
-  // The parent component (ProfileSection) ensures user exists before rendering
-
-  // Handler passed to AvatarUploadForm
-  const handleUploadComplete = (
+  // This handler acts as a bridge. It will be passed to AvatarUploadForm
+  // under the prop name that AvatarUploadForm expects (onUploadComplete).
+  // When AvatarUploadForm calls its onUploadComplete, this function executes,
+  // which in turn calls the onSuccess function passed down from ProfileSection.
+  const handleUploadCompleteForForm = (
     newAvatar: string | null,
     newBg: string | null,
   ) => {
-    onImagesUploaded(newAvatar, newBg); // Call the handler passed from ProfileSection
-    // Closing is handled within AvatarUploadForm after success/toast
+    onSuccess(newAvatar, newBg); // Call the original handler passed from ProfileSection
+    // Closing the modal is handled within AvatarUploadForm after the success toast/delay
   };
 
+  // The Dialog component handles the open/close state via the 'open' and 'onOpenChange' props
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[450px]"> {/* Adjusted size slightly */}
+      <DialogContent className="sm:max-w-[450px]">
+        {" "}
+        {/* Content wrapper */}
         <DialogHeader>
           <DialogTitle>Edit Images</DialogTitle>
           <DialogDescription>
-             Update your profile picture and background image.
+            Update your profile picture and background image.
           </DialogDescription>
-          {/* DialogClose is implicitly added by shadcn Dialog */}
+          {/* Shadcn Dialog implicitly adds a close button here */}
         </DialogHeader>
-
-        {/* Image Upload Section ONLY */}
-        <div className="mt-4 mb-6"> {/* Adjusted margin */}
+        {/* Render the Upload Form Inside */}
+        <div className="mt-4 mb-6">
+          {" "}
+          {/* Add some margin */}
+          {/* Pass the necessary props down to the actual form */}
           <AvatarUploadForm
-            currentAvatarUrl={user.avatarUrl}
+            currentAvatarUrl={user.avatarUrl} // Pass current URLs from user prop
             currentBackgroundUrl={user.backgroundUrl}
-            onUploadComplete={handleUploadComplete} // Pass the handler down
-            onCloseRequest={onClose} // Allow form to request close
+            // Pass the bridge handler as the 'onUploadComplete' prop,
+            // matching what AvatarUploadForm expects based on its definition
+            onUploadComplete={handleUploadCompleteForForm}
+            // Pass the onClose function so the form can request closure
+            onCloseRequest={onClose}
           />
         </div>
-
-        {/* Removed Profile Info Section and Separator */}
-        {/* Removed DialogFooter */}
+        {/* Footer removed as actions are within AvatarUploadForm */}
       </DialogContent>
     </Dialog>
   );

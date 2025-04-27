@@ -2,54 +2,51 @@
 import { validateRequest } from "@/auth";
 import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
-import { Session as LuciaSession } from "lucia";
-
 import ManagerNavbar from "./_components/ManagerNavbar";
 import ManagerSidebar from "./_components/ManagerSidebar";
 import { Toaster } from "sonner";
 import SessionProvider, { SessionUser } from "./SessionProvider";
-
-// export const dynamic = "force-dynamic";
+import { cn } from "@/lib/utils";
 
 export default async function ManagerLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user: fullUser, session } = await validateRequest();
+  const { user: authUser, session: authSession } = await validateRequest();
 
-  if (!fullUser || !session) {
-    return redirect("/login");
-  }
-
-  if (fullUser.role !== UserRole.MANAGER) {
+  if (!authUser || !authSession || authUser.role !== UserRole.MANAGER) {
     return redirect("/");
   }
 
-  const sessionUser: SessionUser = {
-    id: fullUser.id,
-    username: fullUser.username,
-    firstName: fullUser.firstName,
-    lastName: fullUser.lastName,
-    displayName: fullUser.displayName,
-    email: fullUser.email,
-    avatarUrl: fullUser.avatarUrl,
-    backgroundUrl: fullUser.backgroundUrl,
-    role: fullUser.role as UserRole,
+  const managerSessionUser: SessionUser = {
+    id: authUser.id,
+    username: authUser.username,
+    firstName: authUser.firstName,
+    lastName: authUser.lastName,
+    displayName: authUser.displayName,
+    email: authUser.email,
+    avatarUrl: authUser.avatarUrl ?? null,
+    backgroundUrl: authUser.backgroundUrl ?? null,
+    role: authUser.role,
   };
 
   return (
-    <SessionProvider value={{ user: sessionUser, session: session }}>
-      <div className="h-full flex flex-col">
-        {/* Pass NO user prop to Navbar */}
-        <ManagerNavbar />
-        <div className="h-[88px]"></div>
-        <div className="flex flex-1 overflow-hidden">
-          <div className="hidden md:flex">
-            {/* Pass NO user prop to Sidebar */}
-            <ManagerSidebar />
-          </div>
-          <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-background text-foreground">
+    <SessionProvider value={{ user: managerSessionUser, session: authSession }}>
+      {/* *** REMOVE overflow-hidden from root *** */}
+      <div className="flex h-screen w-screen bg-background">
+        {" "}
+        {/* Removed overflow-hidden */}
+        {/* Sidebar Area */}
+        <div className="flex-shrink-0 hidden md:block">
+          <ManagerSidebar />
+        </div>
+        {/* Main Content Area */}
+        <div className="flex flex-1 flex-col">
+          {" "}
+          {/* Keep overflow-hidden REMOVED here too */}
+          <ManagerNavbar />
+          <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-muted/40">
             <Toaster richColors position="top-center" />
             {children}
           </main>
