@@ -17,23 +17,14 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
-import { SessionUser } from "@/app/(customer)/SessionProvider";
+import { SessionUser } from "@/app/(customer)/SessionProvider"; // Use the shared type
 import {
   ProfileUpdateFormValues,
   profileUpdateSchema,
-} from "../_actions/types";
+} from "../_actions/types"; // Corrected path
 
 interface ProfileInfoFormProps {
-  // Adjust this type based on what's truly available in the initial user object passed
-  user: SessionUser & {
-    phoneNumber?: string | null;
-    streetAddress?: string | null; // Use Prisma field names
-    suburb?: string | null;
-    townCity?: string | null;
-    // stateProvince REMOVED
-    postcode?: string | null; // Use Prisma field name
-    // country should be in SessionUser already
-  };
+  user: SessionUser;
   onSubmit: (data: ProfileUpdateFormValues) => Promise<void>;
   isSubmitting: boolean;
 }
@@ -48,8 +39,8 @@ const ProfileInfoForm: React.FC<ProfileInfoFormProps> = ({
     handleSubmit,
     formState: { errors },
   } = useForm<ProfileUpdateFormValues>({
+    // <<< Use the correct type here
     resolver: zodResolver(profileUpdateSchema),
-    // Pre-populate using Prisma field names
     defaultValues: {
       firstName: user.firstName || "",
       lastName: user.lastName || "",
@@ -57,12 +48,11 @@ const ProfileInfoForm: React.FC<ProfileInfoFormProps> = ({
       username: user.username || "",
       email: user.email || "",
       phoneNumber: user.phoneNumber || "",
-      streetAddress: user.streetAddress || "", // Use streetAddress
-      suburb: user.suburb || "", // Use suburb
-      townCity: user.townCity || "", // Use townCity
-      postcode: user.postcode || "", // Use postcode (should be in SessionUser)
-      country: user.country || "", // Use country (should be in SessionUser)
-      // stateProvince removed
+      streetAddress: user.streetAddress || "", // Now valid in schema
+      suburb: user.suburb || "", // Now valid in schema
+      townCity: user.townCity || "", // Now valid in schema
+      postcode: user.postcode || "",
+      country: user.country || "",
     },
   });
 
@@ -75,12 +65,14 @@ const ProfileInfoForm: React.FC<ProfileInfoFormProps> = ({
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
+        {" "}
+        {/* Pass the correct onSubmit */}
         <CardContent className="space-y-6">
-          {/* Basic Info Section (no changes needed here if names were correct) */}
+          {/* Basic Info Section */}
           <div className="space-y-4">
-            {/* ... firstName, lastName, displayName, username, email, phoneNumber inputs ... */}
+            {/* Field rows... */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* First Name */}
+              {/* ... firstName, lastName ... */}
               <div className="space-y-1">
                 <Label htmlFor="firstName">First Name</Label>
                 <Input
@@ -94,7 +86,6 @@ const ProfileInfoForm: React.FC<ProfileInfoFormProps> = ({
                   </p>
                 )}
               </div>
-              {/* Last Name */}
               <div className="space-y-1">
                 <Label htmlFor="lastName">Last Name</Label>
                 <Input
@@ -110,7 +101,7 @@ const ProfileInfoForm: React.FC<ProfileInfoFormProps> = ({
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Display Name */}
+              {/* ... displayName, username ... */}
               <div className="space-y-1">
                 <Label htmlFor="displayName">Display Name</Label>
                 <Input
@@ -124,7 +115,6 @@ const ProfileInfoForm: React.FC<ProfileInfoFormProps> = ({
                   </p>
                 )}
               </div>
-              {/* Username */}
               <div className="space-y-1">
                 <Label htmlFor="username">Username</Label>
                 <Input
@@ -140,7 +130,7 @@ const ProfileInfoForm: React.FC<ProfileInfoFormProps> = ({
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Email */}
+              {/* ... email, phoneNumber ... */}
               <div className="space-y-1">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -153,7 +143,6 @@ const ProfileInfoForm: React.FC<ProfileInfoFormProps> = ({
                   <p className="text-sm text-red-600">{errors.email.message}</p>
                 )}
               </div>
-              {/* Phone Number */}
               <div className="space-y-1">
                 <Label htmlFor="phoneNumber">Phone Number</Label>
                 <Input
@@ -173,51 +162,45 @@ const ProfileInfoForm: React.FC<ProfileInfoFormProps> = ({
 
           <Separator />
 
-          {/* Address Section - Use Prisma field names */}
+          {/* Address Section - Use correct register names */}
           <div className="space-y-4">
             <h3 className="text-md font-medium">Address</h3>
-            {/* Street Address */}
             <div className="space-y-1">
-              <Label htmlFor="streetAddress">Street Address</Label>{" "}
-              {/* Changed label/htmlFor */}
+              <Label htmlFor="streetAddress">Street Address</Label>
+              {/* Corrected register("streetAddress") */}
               <Input
                 id="streetAddress"
                 {...register("streetAddress")}
                 disabled={isSubmitting}
-              />{" "}
-              {/* Changed register */}
+              />
               {errors.streetAddress && (
                 <p className="text-sm text-red-600">
                   {errors.streetAddress.message}
                 </p>
               )}
             </div>
-            {/* Suburb */}
             <div className="space-y-1">
-              <Label htmlFor="suburb">Suburb / Apt / Unit #</Label>{" "}
-              {/* Changed label/htmlFor */}
+              <Label htmlFor="suburb">Suburb / Apt / Unit #</Label>
+              {/* Corrected register("suburb") */}
               <Input
                 id="suburb"
                 {...register("suburb")}
                 placeholder="(Optional)"
                 disabled={isSubmitting}
-              />{" "}
-              {/* Changed register */}
+              />
               {errors.suburb && (
                 <p className="text-sm text-red-600">{errors.suburb.message}</p>
               )}
             </div>
-            {/* Town/City & Postcode */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="townCity">Town / City</Label>{" "}
-                {/* Changed label/htmlFor */}
+                <Label htmlFor="townCity">Town / City</Label>
+                {/* Corrected register("townCity") */}
                 <Input
                   id="townCity"
                   {...register("townCity")}
                   disabled={isSubmitting}
-                />{" "}
-                {/* Changed register */}
+                />
                 {errors.townCity && (
                   <p className="text-sm text-red-600">
                     {errors.townCity.message}
@@ -225,14 +208,12 @@ const ProfileInfoForm: React.FC<ProfileInfoFormProps> = ({
                 )}
               </div>
               <div className="space-y-1">
-                <Label htmlFor="postcode">Postcode</Label>{" "}
-                {/* Changed label/htmlFor */}
+                <Label htmlFor="postcode">Postcode</Label>
                 <Input
                   id="postcode"
                   {...register("postcode")}
                   disabled={isSubmitting}
-                />{" "}
-                {/* Changed register */}
+                />
                 {errors.postcode && (
                   <p className="text-sm text-red-600">
                     {errors.postcode.message}
@@ -240,11 +221,8 @@ const ProfileInfoForm: React.FC<ProfileInfoFormProps> = ({
                 )}
               </div>
             </div>
-            {/* State/Province REMOVED */}
-            {/* Country */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Empty div for spacing or add another field */}
-              <div></div>
+              <div></div> {/* Spacer */}
               <div className="space-y-1">
                 <Label htmlFor="country">Country</Label>
                 <Input

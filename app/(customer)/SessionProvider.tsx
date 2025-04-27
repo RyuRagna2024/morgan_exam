@@ -15,7 +15,7 @@ export type UserRole =
   | "SUPERADMIN"
   | "MANAGER";
 
-// --- ** ADD Tier field TO SessionUser INTERFACE ** ---
+// --- Updated SessionUser Interface ---
 export interface SessionUser {
   id: string;
   username: string;
@@ -23,15 +23,22 @@ export interface SessionUser {
   lastName: string;
   displayName: string;
   email: string;
-  postcode: string;
-  country: string;
+  postcode: string; // Already present
+  country: string; // Already present
   avatarUrl: string | null;
   backgroundUrl: string | null;
   role: UserRole;
-  tier: Tier; // <<< ADDED tier field
-  phoneNumber?: string | null;
+  tier: Tier;
+  phoneNumber?: string | null; // Already optional
+
+  // --- ADDED Optional Fields needed by settings forms ---
+  streetAddress?: string | null;
+  suburb?: string | null; // Represents Apt/Suite in forms
+  townCity?: string | null;
+  // Ensure these fields are actually being fetched and passed in layout.tsx
+  // --- END Add Optional Fields ---
 }
-// --- ** END OF CHANGE ** ---
+// --- END OF CHANGE ---
 
 // SessionWithUser (no changes needed)
 export interface SessionWithUser extends LuciaSession {
@@ -39,10 +46,10 @@ export interface SessionWithUser extends LuciaSession {
 }
 
 // Define the type for allowed updates for THIS provider
-// Add tier if you ever needed to update it client-side via this context (unlikely)
-type CustomerProfileUpdates = Partial<Omit<SessionUser, "id" | "role">>; // Allow updates for most fields
+// Now includes the optional address fields
+type CustomerProfileUpdates = Partial<Omit<SessionUser, "id" | "role">>;
 
-// SessionContext interface (no changes needed)
+// SessionContext interface (no changes needed in structure)
 interface SessionContext {
   user: SessionUser | null;
   session: SessionWithUser | null;
@@ -70,18 +77,13 @@ export default function SessionProvider({
     setUserData(value.user);
   }, [value.user]);
 
-  // updateProfile function remains the same
+  // updateProfile function implementation
   const updateProfile = (updates: CustomerProfileUpdates) => {
     setUserData((prevUser) => {
       if (!prevUser) return null;
-      // Ensure only valid fields are updated
-      const validUpdates: Partial<SessionUser> = {};
-      for (const key in updates) {
-        if (key !== "id" && key !== "role" && key in prevUser) {
-          (validUpdates as any)[key] = (updates as any)[key];
-        }
-      }
-      return { ...prevUser, ...validUpdates };
+      // Create a new user object with updates applied
+      const updatedUser = { ...prevUser, ...updates };
+      return updatedUser;
     });
   };
 
@@ -89,7 +91,7 @@ export default function SessionProvider({
     user: userData,
     session:
       value.session && userData ? { ...value.session, user: userData } : null,
-    updateProfile,
+    updateProfile, // Provide the update function
   };
 
   return (

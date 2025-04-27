@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, SubmitHandler } from "react-hook-form"; // Import SubmitHandler
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,13 +23,7 @@ import {
 } from "../_actions/types";
 
 interface CheckoutDetailsFormProps {
-  // User object containing the relevant fields
-  user: SessionUser & {
-    // Add fields explicitly if not guaranteed by SessionUser
-    streetAddress?: string | null;
-    suburb?: string | null;
-    townCity?: string | null;
-  };
+  user: SessionUser;
   onSubmit: (data: CheckoutDetailsFormValues) => Promise<void>;
   isSubmitting: boolean;
 }
@@ -44,20 +38,31 @@ const CheckoutDetailsForm: React.FC<CheckoutDetailsFormProps> = ({
     handleSubmit,
     formState: { errors },
   } = useForm<CheckoutDetailsFormValues>({
+    // <<< Use the correct type here
     resolver: zodResolver(checkoutDetailsSchema),
-    // Pre-populate using User model fields
     defaultValues: {
       firstName: user.firstName || "",
       lastName: user.lastName || "",
-      country: user.country || "", // Maps to Order.countryRegion label
+      companyName: "", // Assuming companyName isn't stored on User
+      country: user.country || "",
       streetAddress: user.streetAddress || "",
-      suburb: user.suburb || "", // Maps to Order.apartmentSuite label
+      // --- Map user.suburb to apartmentSuite ---
+      apartmentSuite: user.suburb || "",
+      // --- End Map ---
       townCity: user.townCity || "",
+      province: "", // Assuming province isn't stored on User
       postcode: user.postcode || "",
-      phoneNumber: user.phoneNumber || "", // Maps to Order.phone label
+      // --- Map user.phoneNumber to phone ---
+      phone: user.phoneNumber || "",
+      // --- End Map ---
       email: user.email || "",
     },
   });
+
+  // Define the handler with the correct type for the data parameter
+  const handleFormSubmit: SubmitHandler<CheckoutDetailsFormValues> = (data) => {
+    onSubmit(data);
+  };
 
   return (
     <Card>
@@ -67,10 +72,12 @@ const CheckoutDetailsForm: React.FC<CheckoutDetailsFormProps> = ({
           Update your default billing/shipping information used during checkout.
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      {/* Use the correctly typed handler */}
+      <form onSubmit={handleSubmit(handleFormSubmit)}>
         <CardContent className="space-y-4">
           {/* Name Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* ... firstName, lastName ... */}
             <div className="space-y-1">
               <Label htmlFor="checkout-firstName">First Name</Label>
               <Input
@@ -97,6 +104,22 @@ const CheckoutDetailsForm: React.FC<CheckoutDetailsFormProps> = ({
                 </p>
               )}
             </div>
+          </div>
+
+          {/* Company Name (Optional) */}
+          <div className="space-y-1">
+            <Label htmlFor="checkout-companyName">Company Name</Label>
+            <Input
+              id="checkout-companyName"
+              {...register("companyName")}
+              placeholder="(Optional)"
+              disabled={isSubmitting}
+            />
+            {errors.companyName && (
+              <p className="text-sm text-red-600">
+                {errors.companyName.message}
+              </p>
+            )}
           </div>
 
           {/* Country */}
@@ -127,17 +150,22 @@ const CheckoutDetailsForm: React.FC<CheckoutDetailsFormProps> = ({
             )}
           </div>
 
-          {/* Apartment/Suite (using Suburb field) */}
+          {/* Apartment/Suite */}
           <div className="space-y-1">
-            <Label htmlFor="checkout-suburb">Apartment, suite, etc.</Label>
+            <Label htmlFor="checkout-apartmentSuite">
+              Apartment, suite, etc.
+            </Label>
+            {/* Corrected register("apartmentSuite") */}
             <Input
-              id="checkout-suburb"
-              {...register("suburb")}
+              id="checkout-apartmentSuite"
+              {...register("apartmentSuite")}
               placeholder="(Optional)"
               disabled={isSubmitting}
             />
-            {errors.suburb && (
-              <p className="text-sm text-red-600">{errors.suburb.message}</p>
+            {errors.apartmentSuite && (
+              <p className="text-sm text-red-600">
+                {errors.apartmentSuite.message}
+              </p>
             )}
           </div>
 
@@ -151,6 +179,19 @@ const CheckoutDetailsForm: React.FC<CheckoutDetailsFormProps> = ({
             />
             {errors.townCity && (
               <p className="text-sm text-red-600">{errors.townCity.message}</p>
+            )}
+          </div>
+
+          {/* Province */}
+          <div className="space-y-1">
+            <Label htmlFor="checkout-province">Province</Label>
+            <Input
+              id="checkout-province"
+              {...register("province")}
+              disabled={isSubmitting}
+            />
+            {errors.province && (
+              <p className="text-sm text-red-600">{errors.province.message}</p>
             )}
           </div>
 
@@ -170,17 +211,16 @@ const CheckoutDetailsForm: React.FC<CheckoutDetailsFormProps> = ({
           {/* Phone & Email */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label htmlFor="checkout-phoneNumber">Phone</Label>
+              <Label htmlFor="checkout-phone">Phone</Label>
+              {/* Corrected register("phone") */}
               <Input
-                id="checkout-phoneNumber"
+                id="checkout-phone"
                 type="tel"
-                {...register("phoneNumber")}
+                {...register("phone")}
                 disabled={isSubmitting}
               />
-              {errors.phoneNumber && (
-                <p className="text-sm text-red-600">
-                  {errors.phoneNumber.message}
-                </p>
+              {errors.phone && (
+                <p className="text-sm text-red-600">{errors.phone.message}</p>
               )}
             </div>
             <div className="space-y-1">
@@ -196,7 +236,6 @@ const CheckoutDetailsForm: React.FC<CheckoutDetailsFormProps> = ({
               )}
             </div>
           </div>
-          {/* Note: Company Name & Province cannot be set here */}
         </CardContent>
         <CardFooter>
           <Button type="submit" disabled={isSubmitting} className="ml-auto">
