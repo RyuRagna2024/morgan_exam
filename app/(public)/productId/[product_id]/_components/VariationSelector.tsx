@@ -1,8 +1,11 @@
+// app/(public)/productId/[product_id]/_components/VariationSelector.tsx
 "use client";
 
 import { useMemo } from "react";
-import ColorSwatch from "./ColorSwatch";
+import ColorSwatch from "./ColorSwatch"; // Assuming ColorSwatch handles its own dark mode ok
+import { cn } from "@/lib/utils"; // Import cn
 
+// Keep Variation type definition or import it
 interface Variation {
   id: string;
   name: string;
@@ -32,14 +35,14 @@ const VariationSelector = ({
   currentVariation,
 }: VariationSelectorProps) => {
   // Get unique colors
-  const colors = useMemo(() => {
-    return [...new Set(variations.map((v) => v.color))];
-  }, [variations]);
+  const colors = useMemo(
+    () => [...new Set(variations.map((v) => v.color))],
+    [variations],
+  );
 
   // Get sizes available for the selected color
   const availableSizes = useMemo(() => {
     if (!selectedColor) return [];
-
     return variations
       .filter((v) => v.color === selectedColor)
       .map((v) => v.size)
@@ -47,10 +50,13 @@ const VariationSelector = ({
   }, [variations, selectedColor]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {" "}
+      {/* Increased spacing */}
       {/* Colors */}
       <div>
-        <h3 className="text-sm font-medium mb-1">Colors</h3>
+        {/* Use theme text color */}
+        <h3 className="text-sm font-medium mb-2 text-foreground">Colors</h3>
         <div className="flex flex-wrap gap-2">
           {colors.map((color) => (
             <ColorSwatch
@@ -62,40 +68,47 @@ const VariationSelector = ({
           ))}
         </div>
       </div>
-
       {/* Sizes */}
       <div>
-        <h3 className="text-sm font-medium mb-1">Sizes</h3>
+        {/* Use theme text color */}
+        <h3 className="text-sm font-medium mb-2 text-foreground">Sizes</h3>
         <div className="flex flex-wrap gap-2">
           {availableSizes.map((size) => (
-            <div
+            <button // Use button for better semantics/focus
               key={size}
-              className={`px-3 py-1 border rounded text-sm cursor-pointer ${
+              type="button"
+              className={cn(
+                // Use cn for conditional classes
+                "px-3 py-1 border rounded text-sm cursor-pointer transition-colors duration-150 ease-in-out",
+                "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 dark:focus:ring-offset-background", // Focus styles
                 selectedSize === size
-                  ? "bg-black text-white"
-                  : "hover:bg-gray-100"
-              }`}
+                  ? "bg-primary text-primary-foreground border-primary" // Selected styles
+                  : "bg-background text-foreground border-border hover:bg-accent hover:text-accent-foreground", // Default/hover styles
+              )}
               onClick={() => onSizeSelect(size)}
             >
               {size}
-            </div>
+            </button>
           ))}
         </div>
       </div>
-
       {/* Stock info */}
       {currentVariation && (
         <div className="my-3 text-sm">
           <p
-            className={
-              currentVariation.quantity > 0 ? "text-green-600" : "text-red-600"
-            }
+            className={cn(
+              // Use cn for dynamic class
+              currentVariation.quantity > 0
+                ? "text-green-600 dark:text-green-500" // Dark mode green
+                : "text-destructive dark:text-destructive", // Use destructive theme color
+            )}
           >
             {currentVariation.quantity > 0
               ? `In Stock (${currentVariation.quantity} available)`
               : "Out of Stock"}
           </p>
-          <p className="text-gray-500">SKU: {currentVariation.sku}</p>
+          {/* Use muted foreground */}
+          <p className="text-muted-foreground">SKU: {currentVariation.sku}</p>
         </div>
       )}
     </div>

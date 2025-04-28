@@ -1,11 +1,11 @@
 // app/(public)/(group-products)/_components/(filterside)/FilterSidebar.tsx
-
 "use client";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, SlidersHorizontal, X } from "lucide-react";
 import { useProductStore } from "../_store/product-store";
 import { useProductsByPathname } from "../_store/useProductsByPathname";
+import { cn } from "@/lib/utils"; // Import cn
 
 interface SelectedFilters {
   [key: string]: string[];
@@ -17,13 +17,10 @@ const FilterSidebar = () => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  // Get all products for generating available options
   const allProducts = useProductStore((state) => state.allProducts);
-
-  // Get products and category information from our custom hook
   const { products, activeCategory } = useProductsByPathname();
 
-  // Access filter setters from the Zustand store
+  // Filter setters
   const setCategoryFilter = useProductStore((state) => state.setCategoryFilter);
   const setPriceRangeFilter = useProductStore(
     (state) => state.setPriceRangeFilter,
@@ -32,9 +29,8 @@ const FilterSidebar = () => {
     (state) => state.setStockStatusFilter,
   );
   const setColorFilters = useProductStore((state) => state.setColorFilters);
-  const setSizeFilters = useProductStore((state) => state.setSizeFilters); // Updated to use setSizeFilters
+  const setSizeFilters = useProductStore((state) => state.setSizeFilters);
 
-  // Initialize selected filters
   const [selectedFilters, setSelectedFilters] = useState<SelectedFilters>({
     Category: [],
     "Stock Level": [],
@@ -43,62 +39,46 @@ const FilterSidebar = () => {
     Size: [],
   });
 
-  // Define available categories with useMemo
+  // --- Data Memoization (no changes needed here) ---
   const categories = useMemo(
     () => [
-      { name: "Apparel", value: "apparel" },
+      /* ... */ { name: "Apparel", value: "apparel" },
       { name: "Headwear", value: "headwear" },
       { name: "All Collections", value: "all-collections" },
     ],
     [],
   );
-
-  // Dynamically get available colors from ALL products
   const availableColors = useMemo(() => {
-    const colorSet = new Set<string>();
-
-    if (allProducts && allProducts.length > 0) {
-      allProducts.forEach((product) => {
-        product.variations?.forEach((variation) => {
-          if (variation.color) {
+    /* ... */ const colorSet = new Set<string>();
+    if (allProducts) {
+      allProducts.forEach((p) =>
+        p.variations?.forEach(
+          (v) =>
+            v.color &&
             colorSet.add(
-              variation.color.charAt(0).toUpperCase() +
-                variation.color.slice(1).toLowerCase(),
-            );
-          }
-        });
-      });
+              v.color.charAt(0).toUpperCase() + v.color.slice(1).toLowerCase(),
+            ),
+        ),
+      );
     }
-
     return Array.from(colorSet).sort();
   }, [allProducts]);
-
-  // Dynamically get available sizes from ALL products, not just filtered ones
   const availableSizes = useMemo(() => {
-    const sizeSet = new Set<string>();
-
-    if (allProducts && allProducts.length > 0) {
-      allProducts.forEach((product) => {
-        product.variations?.forEach((variation) => {
-          if (variation.size) {
-            sizeSet.add(variation.size);
-          }
-        });
-      });
+    /* ... */ const sizeSet = new Set<string>();
+    if (allProducts) {
+      allProducts.forEach((p) =>
+        p.variations?.forEach((v) => v.size && sizeSet.add(v.size)),
+      );
     }
-
     return Array.from(sizeSet).sort();
-  }, [allProducts]); // Changed dependency to allProducts
-
-  // Generate price ranges based on products in ZAR
-  const availablePriceRanges = useMemo(() => {
-    return ["Under R500", "R500-R1000", "R1000-R2000", "Over R2000"];
-  }, []);
-
-  // Generate filters object with dynamic data
+  }, [allProducts]);
+  const availablePriceRanges = useMemo(
+    () => ["Under R500", "R500-R1000", "R1000-R2000", "Over R2000"],
+    [],
+  );
   const filters = useMemo(
     () => ({
-      Category: categories.map((cat) => cat.name),
+      Category: categories.map((c) => c.name),
       "Stock Level": ["In Stock", "Out of Stock", "Low Stock"],
       Color: availableColors,
       "Price Range": availablePriceRanges,
@@ -106,30 +86,28 @@ const FilterSidebar = () => {
     }),
     [categories, availableColors, availablePriceRanges, availableSizes],
   );
+  // --- End Data Memoization ---
 
-  // Update selected category based on pathname
+  // --- Effects and Handlers (no changes needed here) ---
   useEffect(() => {
-    if (!pathname) return;
-
+    /* ... set selected category from path ... */ if (!pathname) return;
     const pathSegments = pathname.split("/").filter(Boolean);
     const lastSegment = pathSegments[pathSegments.length - 1];
-
     const matchedCategory = categories.find(
-      (cat) => lastSegment.toLowerCase() === cat.value,
+      (cat) => lastSegment?.toLowerCase() === cat.value,
     );
-
     if (matchedCategory) {
       setSelectedFilters((prev) => ({
         ...prev,
         Category: [matchedCategory.name],
       }));
       setOpenDropdown("Category");
+    } else {
+      setSelectedFilters((prev) => ({ ...prev, Category: [] }));
     }
   }, [pathname, categories]);
-
-  // Convert price range label to actual min/max values
   const getPriceRangeValues = useCallback((label: string) => {
-    switch (label) {
+    /* ... */ switch (label) {
       case "Under R500":
         return { min: 0, max: 500 };
       case "R500-R1000":
@@ -142,89 +120,58 @@ const FilterSidebar = () => {
         return null;
     }
   }, []);
-
   const toggleDropdown = useCallback((dropdownName: string) => {
     setOpenDropdown((prev) => (prev === dropdownName ? null : dropdownName));
   }, []);
-
   const handleFilterChange = useCallback(
     (category: string, value: string) => {
       setSelectedFilters((prev) => {
-        const updatedFilters = { ...prev };
-
-        // Handle Category specially (exclusive selection)
+        const updated = { ...prev };
         if (category === "Category") {
-          if (updatedFilters[category].includes(value)) {
-            updatedFilters[category] = [];
+          if (updated[category].includes(value)) {
+            updated[category] = [];
           } else {
-            updatedFilters[category] = [value];
-            // Find the matching route value and navigate
-            const matchedCategory = categories.find(
-              (cat) => cat.name === value,
-            );
-            if (matchedCategory) {
-              router.push(`/${matchedCategory.value}`);
-            }
+            updated[category] = [value];
+            const matched = categories.find((c) => c.name === value);
+            if (matched) router.push(`/${matched.value}`);
           }
         } else {
-          // For other filters, toggle selection (allow multiple)
-          if (updatedFilters[category].includes(value)) {
-            updatedFilters[category] = updatedFilters[category].filter(
-              (item) => item !== value,
-            );
+          if (updated[category].includes(value)) {
+            updated[category] = updated[category].filter((i) => i !== value);
           } else {
-            updatedFilters[category] = [...updatedFilters[category], value];
+            updated[category] = [...updated[category], value];
           }
         }
-
-        return updatedFilters;
+        return updated;
       });
     },
     [categories, router],
   );
-
-  // Apply filters to store when selections change
   const selectedPriceRanges = selectedFilters["Price Range"];
   const selectedStockLevels = selectedFilters["Stock Level"];
   const selectedColors = selectedFilters["Color"];
   const selectedSizes = selectedFilters["Size"];
-
   useEffect(() => {
-    // Apply price range filter
-    if (selectedPriceRanges && selectedPriceRanges.length > 0) {
-      const priceRangeValues = getPriceRangeValues(selectedPriceRanges[0]);
-      if (priceRangeValues) {
-        setPriceRangeFilter({
-          min: priceRangeValues.min,
-          max: priceRangeValues.max,
-          label: selectedPriceRanges[0],
-        });
-      }
-    } else {
-      setPriceRangeFilter(null);
-    }
-
-    // Apply stock status filter
-    if (selectedStockLevels && selectedStockLevels.length > 0) {
-      const status = selectedStockLevels[0].toLowerCase().replace(/\s+/g, "-");
-      setStockStatusFilter(status as any);
-    } else {
-      setStockStatusFilter("all");
-    }
-
-    // Apply color filters
-    if (selectedColors && selectedColors.length > 0) {
-      setColorFilters(selectedColors.map((color) => color.toLowerCase()));
-    } else {
-      setColorFilters([]);
-    }
-
-    // Apply size filters - updated to support multiple sizes
-    if (selectedSizes && selectedSizes.length > 0) {
-      setSizeFilters(selectedSizes);
-    } else {
-      setSizeFilters([]);
-    }
+    /* ... apply filters to store ... */ const priceRangeValues =
+      selectedPriceRanges.length > 0
+        ? getPriceRangeValues(selectedPriceRanges[0])
+        : null;
+    setPriceRangeFilter(
+      priceRangeValues
+        ? { ...priceRangeValues, label: selectedPriceRanges[0] }
+        : null,
+    );
+    const status =
+      selectedStockLevels.length > 0
+        ? (selectedStockLevels[0].toLowerCase().replace(/\s+/g, "-") as any)
+        : "all";
+    setStockStatusFilter(status);
+    setColorFilters(
+      selectedColors.length > 0
+        ? selectedColors.map((c) => c.toLowerCase())
+        : [],
+    );
+    setSizeFilters(selectedSizes.length > 0 ? selectedSizes : []);
   }, [
     selectedPriceRanges,
     selectedStockLevels,
@@ -236,9 +183,7 @@ const FilterSidebar = () => {
     setColorFilters,
     setSizeFilters,
   ]);
-
   const clearFilters = useCallback(() => {
-    // Keep Category but clear other filters
     setSelectedFilters((prev) => ({
       Category: prev.Category,
       "Stock Level": [],
@@ -247,24 +192,28 @@ const FilterSidebar = () => {
       Size: [],
     }));
   }, []);
-
-  // Check if there are any active filters (excluding Category)
   const hasActiveFilters = Object.entries(selectedFilters).some(
-    ([category, filters]) => category !== "Category" && filters.length > 0,
+    ([cat, vals]) => cat !== "Category" && vals.length > 0,
   );
+  // --- End Effects and Handlers ---
 
+  // --- Updated FilterSection with dark mode styles ---
   const FilterSection = useCallback(
     ({ title, options }: { title: string; options: string[] }) => (
-      <div className="border-b border-gray-200 last:border-b-0">
+      // Use border-border for theme awareness
+      <div className="border-b border-border last:border-b-0">
         <button
           onClick={() => toggleDropdown(title)}
-          className="flex justify-between items-center w-full py-3 px-4 text-left hover:bg-gray-50 transition-colors"
+          // Added dark mode hover/text styles
+          className="flex justify-between items-center w-full py-3 px-4 text-left hover:bg-accent dark:hover:bg-accent/50 transition-colors"
         >
-          <span className="font-medium text-gray-900">{title}</span>
+          {/* Added dark mode text styles */}
+          <span className="font-medium text-foreground">{title}</span>
+          {/* Added dark mode text styles */}
           {openDropdown === title ? (
-            <ChevronUp className="h-4 w-4 text-gray-500" />
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-gray-500" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           )}
         </button>
 
@@ -272,18 +221,27 @@ const FilterSidebar = () => {
           <div className="px-4 pb-3 space-y-2">
             {options.length > 0 ? (
               options.map((option) => (
-                <label key={option} className="flex items-center">
+                <label
+                  key={option}
+                  className="flex items-center cursor-pointer"
+                >
                   <input
                     type="checkbox"
                     checked={selectedFilters[title].includes(option)}
                     onChange={() => handleFilterChange(title, option)}
-                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    // Use accent colors for checkbox
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary dark:focus:ring-offset-background"
                   />
-                  <span className="ml-3 text-sm text-gray-600">{option}</span>
+                  {/* Added dark mode text styles */}
+                  <span className="ml-3 text-sm text-muted-foreground dark:text-gray-300">
+                    {option}
+                  </span>
                 </label>
               ))
             ) : (
-              <div className="text-sm text-gray-500">No options available</div>
+              <div className="text-sm text-muted-foreground">
+                No options available
+              </div>
             )}
           </div>
         )}
@@ -291,36 +249,46 @@ const FilterSidebar = () => {
     ),
     [openDropdown, selectedFilters, toggleDropdown, handleFilterChange],
   );
+  // --- End FilterSection ---
 
+  // --- Updated SidebarContent with dark mode styles ---
   const SidebarContent = useCallback(
     () => (
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-gray-200">
+      // Added dark mode background, border
+      <div className="bg-card text-card-foreground rounded-lg border border-border shadow-sm overflow-hidden">
+        {/* Use border-border */}
+        <div className="p-4 border-b border-border">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+            {/* Text color from card */}
+            <h2 className="text-lg font-semibold text-card-foreground">
+              Filters
+            </h2>
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="text-sm font-medium text-white hover:text-white bg-red-500 p-3 rounded-md"
+                // Use secondary button styles for clear
+                className="text-sm font-medium text-secondary-foreground hover:bg-secondary/80 bg-secondary px-3 py-1.5 rounded-md"
               >
                 Clear all
               </button>
             )}
           </div>
+          {/* Selected Filters Pills */}
           {hasActiveFilters && (
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               {Object.entries(selectedFilters)
                 .filter(([category]) => category !== "Category")
-                .map(([category, values]) =>
+                .flatMap(([category, values]) =>
                   values.map((value) => (
+                    // Pill styling with dark mode
                     <span
                       key={`${category}-${value}`}
-                      className="inline-flex items-center px-2 py-1 rounded-md text-sm bg-gray-100 text-gray-700"
+                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground border border-border"
                     >
                       {value}
                       <button
                         onClick={() => handleFilterChange(category, value)}
-                        className="ml-1 text-gray-400 hover:text-gray-600"
+                        className="ml-1 text-muted-foreground/60 hover:text-muted-foreground"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -330,7 +298,8 @@ const FilterSidebar = () => {
             </div>
           )}
         </div>
-        <div className="divide-y divide-gray-200">
+        {/* Use border-border */}
+        <div className="divide-y divide-border">
           {Object.entries(filters).map(([title, options]) => (
             <FilterSection key={title} title={title} options={options} />
           ))}
@@ -346,6 +315,7 @@ const FilterSidebar = () => {
       selectedFilters,
     ],
   );
+  // --- End SidebarContent ---
 
   return (
     <>
@@ -357,7 +327,8 @@ const FilterSidebar = () => {
       {/* Mobile Filter Button */}
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="lg:hidden fixed bottom-6 right-6 bg-black text-white rounded-full p-4 shadow-lg z-50 flex items-center justify-center"
+        // Use primary color for floating button
+        className="lg:hidden fixed bottom-6 right-6 bg-primary text-primary-foreground rounded-full p-4 shadow-lg z-50 flex items-center justify-center hover:bg-primary/90"
         aria-label="Open filters"
       >
         <SlidersHorizontal className="h-6 w-6" />
@@ -366,23 +337,34 @@ const FilterSidebar = () => {
       {/* Mobile Slide-over */}
       {isMobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
+          {/* Overlay */}
           <div
             className="fixed inset-0 bg-black bg-opacity-25 transition-opacity"
             onClick={() => setIsMobileOpen(false)}
+            aria-hidden="true"
           />
 
-          <div className="fixed inset-y-0 right-0 w-full max-w-xs bg-white shadow-xl">
+          {/* Panel */}
+          {/* Added dark mode background */}
+          <div className="fixed inset-y-0 right-0 w-full max-w-xs bg-background shadow-xl">
             <div className="h-full flex flex-col">
-              <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+              {/* Header */}
+              {/* Use border-border */}
+              <div className="p-4 border-b border-border flex justify-between items-center">
+                {/* Text should adapt */}
+                <h2 className="text-lg font-semibold text-foreground">
+                  Filters
+                </h2>
                 <button
                   onClick={() => setIsMobileOpen(false)}
-                  className="p-2 -mr-2 text-gray-400 hover:text-gray-500"
+                  className="p-2 -mr-2 text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
+              {/* Content */}
               <div className="flex-1 overflow-y-auto">
+                {/* Reuse SidebarContent - styles applied within it */}
                 <SidebarContent />
               </div>
             </div>
