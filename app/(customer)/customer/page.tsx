@@ -15,18 +15,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-// --- USE PATH ALIASES for imports ---
+
+// --- Actions ---
 import {
   getCustomerOrderCount,
   getCustomerOrders,
 } from "@/app/(customer)/_components/(sidebar)/_profile-actions/count-orders";
 import { getCustomerWishlistCount } from "@/app/(customer)/_components/(sidebar)/_profile-actions/count-wishlist";
-// --- End Use Path Aliases ---
+import { getCustomerSentTicketCount } from "@/app/(customer)/_components/(sidebar)/_profile-actions/count-support-tickets"; // <<< Import new action
+
+// --- Icons ---
 import {
   ShoppingBag,
   Heart,
   Calendar,
-  MessageSquare,
   CreditCard,
   ArrowRightLeft,
   Mail,
@@ -34,12 +36,45 @@ import {
   Award,
   PackageCheck,
   CircleDollarSign,
+  LifeBuoy,
+  MessagesSquare,
+  CheckCheck,
+  Banknote, // Added CheckCheck & Banknote
   LucideProps,
 } from "lucide-react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { Badge as ShadcnBadge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+
+// --- Import TierBadge ---
+import TierBadge from "@/app/(public)/_components/(navbar_group)/TierBadge";
+
+// --- Type Definitions for Action Cards ---
+import type { ForwardRefExoticComponent, RefAttributes } from "react";
+
+type LinkActionCard = {
+  title: string;
+  icon: ForwardRefExoticComponent<
+    Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>
+  >;
+  href: string;
+  value?: string | number;
+  isTierCard?: never;
+};
+
+type TierActionCard = {
+  title: string;
+  icon: ForwardRefExoticComponent<
+    Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>
+  >;
+  isTierCard: true;
+  value?: never;
+  href?: never;
+};
+
+type ActionCardItem = LinkActionCard | TierActionCard;
+// --- End Type Definitions ---
 
 // Helper function to format currency
 const formatCurrency = (amount: number | null | undefined) => {
@@ -74,34 +109,56 @@ const getStatusVariant = (
 export default async function CustomerDashboardPage() {
   const { user } = await validateRequest();
 
-  const [orderCountResponse, wishlistCountResponse, ordersResponse] =
-    await Promise.all([
-      getCustomerOrderCount(),
-      getCustomerWishlistCount(),
-      getCustomerOrders(),
-    ]);
+  // Fetch all necessary data
+  const [
+    orderCountResponse,
+    wishlistCountResponse,
+    ordersResponse,
+    ticketCountResponse,
+  ] = await Promise.all([
+    getCustomerOrderCount(),
+    getCustomerWishlistCount(),
+    getCustomerOrders(), // Fetches all orders
+    getCustomerSentTicketCount(),
+  ]);
 
+  // Process standard counts
   const orderCount = orderCountResponse.success
     ? orderCountResponse.totalOrders || 0
     : 0;
   const wishlistCount = wishlistCountResponse.success
     ? wishlistCountResponse.wishlistItemCount || 0
     : 0;
-  // The type for latestOrders comes from the return type of getCustomerOrders
-  const latestOrders =
+  const supportTicketsSentCount = ticketCountResponse.success
+    ? ticketCountResponse.ticketCount || 0
+    : 0;
+
+  // Process all orders data
+  const allOrders =
     ordersResponse.success && Array.isArray(ordersResponse.orders)
-      ? ordersResponse.orders.slice(0, 5)
+      ? ordersResponse.orders
       : [];
+  const latestOrders = allOrders.slice(0, 5); // Get latest 5 for the table
+
+  // --- Calculate Delivered Orders Count ---
+  const deliveredOrdersCount = allOrders.filter(
+    (order) => order.status?.toUpperCase() === "DELIVERED",
+  ).length;
+  // --- End Calculation ---
+
+  // --- Calculate Total Amount Spent ---
+  const totalAmountSpent = allOrders.reduce(
+    (sum, order) => sum + (order.totalAmount || 0), // Add amount, default to 0 if null/undefined
+    0, // Initial sum is 0
+  );
+  // --- End Calculation ---
 
   // --- Mock Data ---
-  const messageCount = 3;
   const subscriptionCount = 1;
-  const returnRequestsCount = 1;
-  const transactionsCount = 50;
-  const creditsValue = 100;
-  const rewardPoints = 0;
+  // const transactionsCount = 50; // Removed, replaced by delivered count
+  // const creditsValue = 100; // Removed, replaced by total spent
 
-  // Structure for the main summary cards
+  // --- Updated Summary Cards ---
   const summaryCards = [
     {
       title: "Total Orders",
@@ -110,10 +167,10 @@ export default async function CustomerDashboardPage() {
       href: "/customer/orders",
     },
     {
-      title: "Return Requests",
-      value: returnRequestsCount,
-      icon: PackageCheck,
-      href: "/customer/orders?filter=returns",
+      title: "Support Tickets Sent",
+      value: supportTicketsSentCount,
+      icon: LifeBuoy,
+      href: "/customer/support",
     },
     {
       title: "Wishlist",
@@ -121,18 +178,21 @@ export default async function CustomerDashboardPage() {
       icon: Heart,
       href: "/customer/wishlist",
     },
+    // --- Updated Transactions Card ---
     {
-      title: "Transactions",
-      value: transactionsCount,
-      icon: ArrowRightLeft,
-      href: "/customer/payment-methods",
-    },
+      title: "Delivered Orders",
+      value: deliveredOrdersCount,
+      icon: CheckCheck,
+      href: "/customer/orders?status=delivered",
+    }, // Updated title, value, icon, href
+    // --- Updated Credits Card ---
     {
-      title: "Credits",
-      value: formatCurrency(creditsValue),
-      icon: CircleDollarSign,
-      href: "#",
-    },
+      title: "Total Amount Spent",
+      value: formatCurrency(totalAmountSpent),
+      icon: Banknote,
+      href: "/customer/orders",
+    }, // Updated title, value, icon, href
+    // --- End Updates ---
     {
       title: "Subscriptions",
       value: subscriptionCount,
@@ -141,8 +201,9 @@ export default async function CustomerDashboardPage() {
     },
   ];
 
-  // Structure for smaller action cards/links
-  const actionCards = [
+  // --- Action Cards (No changes needed here based on request) ---
+  const rewardPoints = 0; // Example value for Reward Points card if you keep it
+  const actionCards: ActionCardItem[] = [
     {
       title: "Change Password",
       icon: KeyRound,
@@ -150,21 +211,21 @@ export default async function CustomerDashboardPage() {
     },
     { title: "Order History", icon: ShoppingBag, href: "/customer/orders" },
     {
-      title: "Newsletter",
-      icon: Mail,
-      href: "/customer/settings?tab=notifications",
+      title: "My Messages",
+      icon: MessagesSquare,
+      href: "/customer/mymessages",
     },
     {
       title: "Payment Details",
       icon: CreditCard,
       href: "/customer/payment-methods",
     },
-    { title: "Reward Points", value: rewardPoints, icon: Award, href: "#" },
+    // Removed Reward Points card { title: "Reward Points", value: rewardPoints, icon: Award, href: "#" },
+    { title: "Tier Status", icon: Award, isTierCard: true },
   ];
 
   return (
     <div className="flex flex-col gap-6 lg:gap-8">
-      {/* Welcome Header */}
       <h1 className="text-2xl font-semibold">
         Welcome back, {user?.displayName || "Customer"}!
       </h1>
@@ -194,23 +255,39 @@ export default async function CustomerDashboardPage() {
 
       {/* Action Links/Cards Grid (Smaller) */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-        {actionCards.map((item, index) => (
-          <Link
-            href={item.href || "#"}
-            key={index}
-            className="block hover:shadow-md transition-shadow rounded-lg"
-          >
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center p-4 gap-2 text-center">
-                <item.icon className="h-6 w-6 text-muted-foreground mb-1" />
-                <p className="text-sm font-medium">{item.title}</p>
-                {item.value !== undefined && (
-                  <p className="text-xs text-muted-foreground">{item.value}</p>
-                )}
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+        {actionCards.map((item, index) => {
+          if (item.isTierCard) {
+            return (
+              <Card key={index}>
+                <CardContent className="flex flex-col items-center justify-center p-4 gap-2 text-center">
+                  <item.icon className="h-6 w-6 text-muted-foreground mb-1" />
+                  <p className="text-sm font-medium">{item.title}</p>
+                  <TierBadge />
+                </CardContent>
+              </Card>
+            );
+          } else {
+            return (
+              <Link
+                href={item.href}
+                key={index}
+                className="block hover:shadow-md transition-shadow rounded-lg"
+              >
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center p-4 gap-2 text-center">
+                    <item.icon className="h-6 w-6 text-muted-foreground mb-1" />
+                    <p className="text-sm font-medium">{item.title}</p>
+                    {item.value !== undefined && (
+                      <p className="text-xs text-muted-foreground">
+                        {item.value}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          }
+        })}
       </div>
 
       {/* Latest Orders Table */}
@@ -232,7 +309,6 @@ export default async function CustomerDashboardPage() {
             </TableHeader>
             <TableBody>
               {latestOrders.length > 0 ? (
-                // The type for 'order' is inferred from latestOrders array, which uses OrderWithItems type from count-orders.ts
                 latestOrders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">
@@ -249,12 +325,12 @@ export default async function CustomerDashboardPage() {
                         : 0}
                     </TableCell>
                     <TableCell>
-                      <Badge
+                      <ShadcnBadge
                         variant={getStatusVariant(order.status)}
                         className="capitalize"
                       >
                         {order.status?.toLowerCase() || "unknown"}
-                      </Badge>
+                      </ShadcnBadge>
                     </TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(order.totalAmount)}
