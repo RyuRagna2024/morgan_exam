@@ -2,21 +2,33 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import React, { useEffect, useMemo, useState } from "react"; // Added React import for event type
+import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useProductDetails } from "../useProductDetails";
-import { useProductStore } from "../../../(group-products)/_components/_store/product-store";
+import { useProductDetails } from "../useProductDetails"; // Adjust path if needed
 import ProductImage from "./ProductImage";
 import VariationSelector from "./VariationSelector";
 import ProductStatus from "./ProductStatus";
 import WishlistButton from "./WishlistButton";
 import { useTierDiscount } from "@/app/(public)/(group-products)/_components/(filterside)/tier-util";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input"; // <<< ADD Input import
+import { Input } from "@/components/ui/input";
+// import { Separator } from "@/components/ui/separator"; // Can remove if not used
+import { Skeleton } from "@/components/ui/skeleton";
 
-// Define Variation type locally or import if defined elsewhere
+// formatCurrency Helper Function
+const formatCurrency = (amount: number | null | undefined) => {
+  if (typeof amount !== "number" || isNaN(amount)) {
+    return "R0,00";
+  }
+  return new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" })
+    .format(amount)
+    .replace("ZAR", "R")
+    .replace(".", ",");
+};
+
+// Interfaces
 interface Variation {
   id: string;
   name: string;
@@ -33,7 +45,6 @@ interface AddToCartResult {
   cartItemCount?: number;
 }
 interface ProductDetailsProps {
-  initialProductId?: string;
   addToCartAction: (formData: {
     variationId: string;
     quantity: number;
@@ -41,12 +52,12 @@ interface ProductDetailsProps {
 }
 
 export default function ProductDetails({
-  initialProductId,
   addToCartAction,
 }: ProductDetailsProps) {
-  // ... (useState, useMemo, useEffect hooks remain the same) ...
   const params = useParams();
-  const [isStoreReady, setIsStoreReady] = useState<boolean>(false);
+  const productIdParam = params?.product_id || params?.productId;
+
+  // --- State ---
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedVariationImage, setSelectedVariationImage] = useState<
@@ -55,47 +66,15 @@ export default function ProductDetails({
   const [quantity, setQuantity] = useState<number>(1);
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
 
+  // --- Hooks ---
   const { hasDiscount, calculatePrice, userTier, discountPercentage } =
     useTierDiscount();
-  const allProducts = useProductStore((state) => state.allProducts);
-  const fetchProducts = useProductStore((state) => state.fetchProducts);
-  const productId = useMemo<string | null>(() => {
-    /* ... */ if (initialProductId) return initialProductId;
-    if (!params) return null;
-    let id: string | null = null;
-    if (typeof params.productId === "string") {
-      id = params.productId;
-    } else if (Array.isArray(params.productId) && params.productId.length > 0) {
-      id = params.productId[0] as string;
-    } else if (typeof params.product_id === "string") {
-      id = params.product_id;
-    } else if (
-      Array.isArray(params.product_id) &&
-      params.product_id.length > 0
-    ) {
-      id = params.product_id[0] as string;
-    } else {
-      const uuidRegex =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      Object.entries(params).forEach(([key, value]) => {
-        if (!id && typeof value === "string" && uuidRegex.test(value)) {
-          id = value;
-        }
-      });
-    }
-    return id;
-  }, [params, initialProductId]);
-  useEffect(() => {
-    if (allProducts.length === 0) {
-      fetchProducts().then(() => setIsStoreReady(true));
-    } else {
-      setIsStoreReady(true);
-    }
-  }, [allProducts.length, fetchProducts]);
   const { product, isLoading, error } = useProductDetails({
-    productId: isStoreReady ? productId : null,
+    productId: productIdParam as string | null,
     autoLoad: true,
   });
+
+  // --- Memos ---
   const currentVariation = useMemo<Variation | null>(() => {
     if (!product?.variations || !selectedColor || !selectedSize) return null;
     return (
@@ -108,26 +87,20 @@ export default function ProductDetails({
     if (!currentVariation) return null;
     return calculatePrice(currentVariation.price);
   }, [currentVariation, calculatePrice]);
-  const discountedBasePrice = useMemo(() => {
-    if (!product) return null;
-    return calculatePrice(product.sellingPrice);
-  }, [product, calculatePrice]);
+  const tierName = userTier.charAt(0) + userTier.slice(1).toLowerCase();
+
+  // --- Effects ---
   useEffect(() => {
     if (product?.variations?.length) {
       const first = product.variations[0];
-      if (
-        !selectedColor ||
-        !selectedSize ||
-        (currentVariation &&
-          currentVariation.id.split("-")[0] !== product.id.split("-")[0])
-      ) {
+      if (!selectedColor || !selectedSize) {
         setSelectedColor(first.color);
         setSelectedSize(first.size);
         setSelectedVariationImage(first.imageUrl);
         setQuantity(1);
       }
     }
-  }, [product, selectedColor, selectedSize, currentVariation]);
+  }, [product, selectedColor, selectedSize]);
   useEffect(() => {
     if (currentVariation) {
       setSelectedVariationImage(currentVariation.imageUrl);
@@ -136,45 +109,39 @@ export default function ProductDetails({
       setQuantity(1);
     }
   }, [currentVariation, selectedColor, selectedSize]);
+
+  // --- Handlers ---
   const handleColorSelect = (color: string): void => {
     setSelectedColor(color);
     if (!product?.variations) return;
-    const variationsForColor = product.variations.filter(
-      (v) => v.color === color,
-    );
-    const sizesForColor = variationsForColor.map((v) => v.size);
-    const firstAvailableSize = sizesForColor[0];
-    const newSize = sizesForColor.includes(selectedSize as string)
-      ? selectedSize
-      : firstAvailableSize;
-    setSelectedSize(newSize);
-    const variation = variationsForColor.find((v) => v.size === newSize);
-    if (variation) {
-      setSelectedVariationImage(variation.imageUrl);
+    const vfc = product.variations.filter((v) => v.color === color);
+    const sfc = vfc.map((v) => v.size);
+    const fas = sfc[0];
+    const ns = sfc.includes(selectedSize as string) ? selectedSize : fas;
+    setSelectedSize(ns);
+    const v = vfc.find((v) => v.size === ns);
+    if (v) {
+      setSelectedVariationImage(v.imageUrl);
     }
     setQuantity(1);
   };
   const handleSizeSelect = (size: string): void => {
     setSelectedSize(size);
-    const variation = product?.variations?.find(
+    const v = product?.variations?.find(
       (v) => v.color === selectedColor && v.size === size,
     );
-    if (variation) {
-      setSelectedVariationImage(variation.imageUrl);
+    if (v) {
+      setSelectedVariationImage(v.imageUrl);
     }
     setQuantity(1);
   };
-  const handleAddToCart = async () => {
+  const handleAddToCart = async (buyNow = false) => {
     if (!currentVariation) {
-      toast.error("Please select variation options.");
+      toast.error("Please select options.");
       return;
     }
-    if (quantity <= 0) {
-      toast.error("Please enter a valid quantity.");
-      return;
-    }
-    if (quantity > currentVariation.quantity) {
-      toast.error("Quantity exceeds available stock.");
+    if (quantity <= 0 || quantity > currentVariation.quantity) {
+      toast.error("Invalid quantity or exceeds stock.");
       return;
     }
     setIsAddingToCart(true);
@@ -189,270 +156,297 @@ export default function ProductDetails({
           duration: 3000,
         });
         if (typeof window !== "undefined") {
-          import("../../../productId/cart/_store/cart-store")
-            .then((module) => module.useCartStore.getState().refreshCart(true))
-            .catch((e) => console.error("Error importing cart store:", e));
+          import("../../../productId/cart/_store/cart-store").then((m) =>
+            m.useCartStore.getState().refreshCart(true),
+          );
+        }
+        if (buyNow) {
+          window.location.href = "/checkout";
         }
       } else {
-        toast.error(result.message || "Failed to add item.");
+        toast.error(result.message || "Failed.");
       }
-    } catch (error) {
-      toast.error("Failed to add item to cart");
-      console.error("Add to cart error:", error);
+    } catch (err) {
+      toast.error("Failed to add.");
     } finally {
       setIsAddingToCart(false);
     }
   };
-  // --- Loading/Error/Not Found Status ---
-  if (!isStoreReady || isLoading || (!isLoading && !product && productId)) {
+
+  // --- Loading State ---
+  if (isLoading) {
     return (
-      <ProductStatus
-        isLoading={!isStoreReady || isLoading}
-        error={error}
-        productId={productId}
-        isProductFound={!!product && !isLoading}
-      />
-    );
-  }
-  if (!product) {
-    return (
-      <ProductStatus
-        isLoading={false}
-        error={null}
-        productId={productId}
-        isProductFound={false}
-      />
-    );
-  }
-  // --- End Status ---
-  const tierName = userTier.charAt(0) + userTier.slice(1).toLowerCase();
-  // --- No Variations Case ---
-  if (!product.variations || product.variations.length === 0) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-card text-card-foreground rounded-lg shadow-sm border border-border overflow-hidden relative p-6">
-          <p>This product is currently unavailable or has no options.</p>
+      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-8 lg:gap-12 animate-pulse p-1">
+        <div className="md:col-span-2">
+          <Skeleton className="aspect-square w-full bg-muted rounded-lg" />
+        </div>
+        <div className="md:col-span-3 space-y-4 p-6 md:p-8">
+          {" "}
+          {/* Adjusted spacing */}
+          <Skeleton className="h-8 w-3/4 bg-muted" />{" "}
+          <Skeleton className="h-6 w-1/4 bg-muted" />
+          <Skeleton className="h-4 w-full bg-muted" />{" "}
+          <Skeleton className="h-4 w-5/6 bg-muted" />
+          <Skeleton className="h-16 w-full bg-muted" />{" "}
+          <Skeleton className="h-12 w-full bg-muted" /> {/* Reduced height */}
+          <div className="flex gap-3 mt-auto pt-2">
+            {" "}
+            <Skeleton className="h-11 flex-1 bg-muted rounded-md" />{" "}
+            <Skeleton className="h-11 flex-1 bg-muted rounded-md" />{" "}
+          </div>
         </div>
       </div>
-    );
+    ); // <<< Ensure closing parenthesis
   }
 
+  // --- Error or Product Not Found State ---
+  if (error || !product) {
+    return (
+      // <<< Wrap ProductStatus for clarity
+      <ProductStatus
+        isLoading={false}
+        error={error}
+        productId={productIdParam as string | null}
+        isProductFound={false}
+      />
+    ); // <<< Ensure closing parenthesis
+  }
+
+  // --- No Variations State ---
+  if (!product.variations || product.variations.length === 0) {
+    return (
+      // <<< Wrap no variations message
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-card text-card-foreground rounded-lg shadow-sm border border-border overflow-hidden relative p-6">
+          <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+            {product.productName}
+          </h1>
+          <p className="text-muted-foreground">
+            This product is currently unavailable.
+          </p>
+        </div>
+      </div>
+    ); // <<< Ensure closing parenthesis
+  }
+
+  // --- Main Render ---
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-card text-card-foreground rounded-lg shadow-sm border border-border overflow-hidden relative">
-        {/* ... Tier Badge and Wishlist Button ... */}
-        {hasDiscount && (
-          <div className="absolute top-2 left-2 z-10 bg-red-600 text-white text-sm font-bold px-3 py-1 rounded-md shadow">
-            {" "}
-            {Math.round(discountPercentage * 100)}% {tierName} Discount{" "}
+    <div className="max-w-6xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-8 lg:gap-12 bg-card text-card-foreground rounded-lg shadow-sm border border-border overflow-hidden p-1">
+        {/* Image Column */}
+        <div className="md:col-span-2 relative p-4 md:p-6 self-start">
+          {hasDiscount && (
+            <div className="absolute top-2 left-2 z-10 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow">
+              {" "}
+              {Math.round(discountPercentage * 100)}% {tierName} Discount{" "}
+            </div>
+          )}
+          <ProductImage
+            imageUrl={selectedVariationImage || product.productImgUrl}
+            productName={product.productName}
+          />
+          <div className="absolute top-2 right-2 z-10">
+            {currentVariation && (
+              <WishlistButton
+                variationId={currentVariation.id}
+                productName={product.productName}
+                className="bg-card/70 hover:bg-card/90 backdrop-blur-sm"
+              />
+            )}
           </div>
-        )}
-        <div className="absolute top-2 right-2 z-10">
-          {" "}
-          {currentVariation && (
-            <WishlistButton
-              variationId={currentVariation.id}
-              productName={product.productName}
-            />
-          )}{" "}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-6">
-          {/* Product Image - Left */}
-          <div className="p-4 md:p-6 flex items-center bg-muted/30 dark:bg-muted/10">
-            <div className="w-full">
+        {/* Details Column */}
+        <div className="md:col-span-3 p-6 md:p-8 flex flex-col">
+          <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+            {product.productName}
+          </h1>
+
+          {/* Rating */}
+          <div className="flex items-center gap-1 mb-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star
+                key={i}
+                size={16}
+                className={
+                  i < 4
+                    ? "fill-yellow-400 text-yellow-400"
+                    : "fill-muted stroke-muted-foreground"
+                }
+              />
+            ))}
+            <span className="text-sm text-muted-foreground ml-1">(4.5)</span>
+          </div>
+
+          {/* Price display */}
+          <div className="mb-4">
+            {hasDiscount && currentVariation ? (
+              <>
+                <p className="text-2xl lg:text-3xl font-bold text-red-600 dark:text-red-500">
+                  {" "}
+                  {formatCurrency(discountedVariationPrice)}{" "}
+                </p>
+                <p className="text-sm text-muted-foreground line-through mt-0.5">
+                  {" "}
+                  {formatCurrency(currentVariation.price)}{" "}
+                </p>
+              </>
+            ) : (
+              <p className="text-2xl lg:text-3xl font-bold">
+                {" "}
+                {formatCurrency(
+                  currentVariation
+                    ? currentVariation.price
+                    : product.sellingPrice,
+                )}{" "}
+              </p>
+            )}
+          </div>
+          {hasDiscount && (
+            <p className="text-xs text-muted-foreground -mt-4 mb-5">
               {" "}
-              <ProductImage
-                imageUrl={selectedVariationImage || product.productImgUrl}
-                productName={product.productName}
-              />{" "}
+              {tierName} member price{" "}
+            </p>
+          )}
+
+          {/* Description */}
+          <p className="text-sm text-muted-foreground mb-6 line-clamp-3">
+            {product.description}
+          </p>
+
+          {/* Basic Info Table REMOVED */}
+
+          {/* Variation Selector */}
+          <div className="mb-5">
+            <VariationSelector
+              variations={product.variations}
+              selectedColor={selectedColor}
+              selectedSize={selectedSize}
+              onColorSelect={handleColorSelect}
+              onSizeSelect={handleSizeSelect}
+              currentVariation={currentVariation}
+            />
+          </div>
+
+          {/* Quantity Selector */}
+          <div className="mb-5">
+            <label
+              htmlFor="quantity"
+              className="block text-sm font-medium mb-1 text-foreground"
+            >
+              {" "}
+              Quantity{" "}
+            </label>
+            <div className="flex items-center w-fit">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-r-none border-r-0"
+                onClick={() => setQuantity(quantity > 1 ? quantity - 1 : 1)}
+                disabled={
+                  !currentVariation ||
+                  currentVariation.quantity <= 0 ||
+                  isAddingToCart ||
+                  quantity <= 1
+                }
+              >
+                {" "}
+                <span className="text-lg">−</span>{" "}
+              </Button>
+              <Input
+                type="number"
+                id="quantity"
+                className="w-14 h-9 text-center border-y border-border bg-background text-foreground focus:outline-none focus:ring-0 rounded-none disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                min="1"
+                max={currentVariation?.quantity || 1}
+                value={quantity}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const val = parseInt(e.target.value);
+                  if (isNaN(val) || val < 1) {
+                    setQuantity(1);
+                  } else if (
+                    currentVariation &&
+                    val > currentVariation.quantity
+                  ) {
+                    setQuantity(currentVariation.quantity);
+                  } else {
+                    setQuantity(val);
+                  }
+                }}
+                disabled={
+                  !currentVariation ||
+                  currentVariation.quantity <= 0 ||
+                  isAddingToCart
+                }
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-l-none border-l-0"
+                onClick={() => {
+                  if (currentVariation) {
+                    setQuantity(
+                      quantity < currentVariation.quantity
+                        ? quantity + 1
+                        : currentVariation.quantity,
+                    );
+                  }
+                }}
+                disabled={
+                  !currentVariation ||
+                  currentVariation.quantity <= 0 ||
+                  (currentVariation && quantity >= currentVariation.quantity) ||
+                  isAddingToCart
+                }
+              >
+                {" "}
+                <span className="text-lg">+</span>{" "}
+              </Button>
             </div>
           </div>
 
-          {/* Product Details - Right */}
-          <div className="p-6 md:p-8 text-foreground flex flex-col">
-            <h1 className="text-2xl lg:text-3xl font-bold mb-2">
-              {product.productName}
-            </h1>
-
-            {/* Price display */}
-            <div className="mb-3">
-              {/* ... price logic ... */}
-              {hasDiscount && currentVariation ? (
-                <>
-                  {" "}
-                  <p className="text-xl lg:text-2xl font-semibold text-red-600 dark:text-red-500">
-                    {" "}
-                    R{(discountedVariationPrice! * quantity).toFixed(2)}{" "}
-                    {quantity > 1 && (
-                      <span className="text-base font-normal ml-2">
-                        {" "}
-                        (R{discountedVariationPrice!.toFixed(2)} each){" "}
-                      </span>
-                    )}{" "}
-                  </p>{" "}
-                  <p className="text-sm text-muted-foreground line-through">
-                    {" "}
-                    Original: R
-                    {(currentVariation.price * quantity).toFixed(2)}{" "}
-                  </p>{" "}
-                  <p className="text-xs text-muted-foreground">
-                    {" "}
-                    {tierName} member price (
-                    {Math.round(discountPercentage * 100)}% off){" "}
-                  </p>{" "}
-                </>
-              ) : (
-                <p className="text-xl lg:text-2xl font-semibold">
-                  {" "}
-                  R
-                  {(currentVariation
-                    ? currentVariation.price * quantity
-                    : product.sellingPrice * quantity
-                  ).toFixed(2)}{" "}
-                  {quantity > 1 && (
-                    <span className="text-base font-normal text-muted-foreground ml-2">
-                      {" "}
-                      (R
-                      {(
-                        currentVariation?.price || product.sellingPrice
-                      ).toFixed(2)}{" "}
-                      each){" "}
-                    </span>
-                  )}{" "}
-                </p>
-              )}
-            </div>
-
-            {/* Description */}
-            <div className="mb-6 text-sm text-muted-foreground flex-grow">
-              {" "}
-              <p>{product.description}</p>{" "}
-            </div>
-
-            {/* Variation Selector */}
-            <div className="mb-6">
-              {" "}
-              <VariationSelector
-                variations={product.variations}
-                selectedColor={selectedColor}
-                selectedSize={selectedSize}
-                onColorSelect={handleColorSelect}
-                onSizeSelect={handleSizeSelect}
-                currentVariation={currentVariation}
-              />{" "}
-            </div>
-
-            {/* Quantity Selector */}
-            <div className="mb-4">
-              <label
-                htmlFor="quantity"
-                className="block text-sm font-medium mb-1 text-foreground"
-              >
-                {" "}
-                Quantity{" "}
-              </label>
-              <div className="flex items-center">
-                {/* ... quantity buttons ... */}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 rounded-r-none border-r-0"
-                  onClick={() => setQuantity(quantity > 1 ? quantity - 1 : 1)}
-                  disabled={
-                    !currentVariation ||
-                    currentVariation.quantity <= 0 ||
-                    isAddingToCart ||
-                    quantity <= 1
-                  }
-                >
-                  {" "}
-                  <span className="text-lg">−</span>{" "}
-                </Button>
-
-                {/* --- ADDED type to 'e' --- */}
-                <Input
-                  type="number"
-                  id="quantity"
-                  className="w-16 h-10 text-center border-x border-border bg-background text-foreground focus:outline-none focus:ring-0 rounded-none disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  min="1"
-                  max={currentVariation?.quantity || 1}
-                  value={quantity}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    // <<< Type added here
-                    const val = parseInt(e.target.value);
-                    if (isNaN(val)) {
-                      setQuantity(1);
-                    } else if (val < 1) {
-                      setQuantity(1);
-                    } else if (
-                      currentVariation &&
-                      val > currentVariation.quantity
-                    ) {
-                      setQuantity(currentVariation.quantity);
-                    } else {
-                      setQuantity(val);
-                    }
-                  }}
-                  disabled={
-                    !currentVariation ||
-                    currentVariation.quantity <= 0 ||
-                    isAddingToCart
-                  }
-                />
-                {/* --- End Type Add --- */}
-
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 rounded-l-none border-l-0"
-                  onClick={() => {
-                    if (currentVariation) {
-                      setQuantity(
-                        quantity < currentVariation.quantity
-                          ? quantity + 1
-                          : currentVariation.quantity,
-                      );
-                    }
-                  }}
-                  disabled={
-                    !currentVariation ||
-                    currentVariation.quantity <= 0 ||
-                    (currentVariation &&
-                      quantity >= currentVariation.quantity) ||
-                    isAddingToCart
-                  }
-                >
-                  {" "}
-                  <span className="text-lg">+</span>{" "}
-                </Button>
-              </div>
-            </div>
-
-            {/* Add to cart button */}
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 mt-auto pt-2">
             <Button
-              className="mt-auto w-full"
+              variant="outline"
               size="lg"
+              className="flex-1"
               disabled={
                 !currentVariation ||
                 currentVariation.quantity <= 0 ||
                 isAddingToCart ||
                 quantity > (currentVariation?.quantity ?? 0)
               }
-              onClick={handleAddToCart}
+              onClick={() => handleAddToCart(false)}
             >
-              {isAddingToCart && (
+              {isAddingToCart ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
+              ) : null}
               {currentVariation && currentVariation.quantity <= 0
                 ? "Out of Stock"
                 : isAddingToCart
                   ? "Adding..."
                   : "Add to Cart"}
             </Button>
+            <Button
+              variant="default"
+              size="lg"
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              disabled={
+                !currentVariation ||
+                currentVariation.quantity <= 0 ||
+                isAddingToCart ||
+                quantity > (currentVariation?.quantity ?? 0)
+              }
+              onClick={() => handleAddToCart(true)}
+            >
+              Buy Now
+            </Button>
           </div>
         </div>
+        {/* End Details Column */}
       </div>
-    </div>
-  );
-}
+      {/* End Grid */}
+    </div> // End Max Width Container
+  ); // <<< FINAL Closing Parenthesis
+} // <<< FINAL Closing Brace

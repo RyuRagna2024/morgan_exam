@@ -2,7 +2,7 @@
 "use client";
 
 import Image from "next/image";
-import { cn } from "@/lib/utils"; // Import cn
+import { cn } from "@/lib/utils";
 
 interface ProductImageProps {
   imageUrl: string;
@@ -11,20 +11,21 @@ interface ProductImageProps {
 
 const ProductImage = ({ imageUrl, productName }: ProductImageProps) => {
   return (
-    // Added theme background with slight opacity as fallback
+    // --- Restore aspect-square ---
     <div
       className={cn(
-        "bg-muted/30 dark:bg-muted/10", // Use muted background
-        "rounded overflow-hidden relative aspect-square mb-4",
+        "bg-muted/30 dark:bg-muted/10",
+        "rounded overflow-hidden relative w-full aspect-square", // Use aspect-square again
       )}
     >
       <Image
         src={imageUrl}
         alt={productName}
         fill
-        sizes="(max-width: 768px) 100vw, 50vw"
+        sizes="(max-width: 768px) 80vw, (max-width: 1024px) 40vw, 30vw"
         priority
-        className="object-contain p-2" // Add padding if needed for contain
+        // Use contain to prevent cropping within the square
+        className="object-contain p-4" // Keep padding
       />
     </div>
   );

@@ -1,21 +1,22 @@
 // app/(public)/(group-products)/_components/(filterside)/product-fetch.ts
-
 "use server";
 
 import prisma from "@/lib/prisma";
-import { ProductActionResult } from "./types";
+import {
+  ProductActionResult,
+  ProductWithVariations,
+  Variation as VariationType,
+} from "./types"; // Import Variation type alias if defined in types.ts
 import { validateRequest } from "@/auth";
+import { Prisma } from "@prisma/client";
 
 /**
- * Fetches all products from the database with their variations,
- * regardless of category, but maintains category information
+ * Fetches all products from the database with their variations.
  */
 export async function getAllProducts(): Promise<ProductActionResult> {
   try {
     const products = await prisma.product.findMany({
-      where: {
-        isPublished: true,
-      },
+      where: { isPublished: true },
       select: {
         id: true,
         productName: true,
@@ -27,6 +28,7 @@ export async function getAllProducts(): Promise<ProductActionResult> {
         createdAt: true,
         updatedAt: true,
         userId: true,
+        // --- CORRECTED: Use capital 'Variation' ---
         Variation: {
           select: {
             id: true,
@@ -39,63 +41,36 @@ export async function getAllProducts(): Promise<ProductActionResult> {
             imageUrl: true,
           },
         },
+        // --- End Correction ---
       },
-      orderBy: {
-        createdAt: "asc",
-      },
+      orderBy: { createdAt: "asc" },
     });
 
-    // Log category distribution for debugging
-    const categoryDistribution = products.reduce<Record<string, number>>(
-      (acc, product) => {
-        if (product.category) {
-          product.category.forEach((cat) => {
-            acc[cat] = (acc[cat] || 0) + 1;
-          });
-        }
-        return acc;
-      },
-      {},
-    );
-
-    // Transform the data to match frontend expectations
+    // Transform data
     const transformedProducts = products.map((product) => {
-      // Create a copy without Variation to avoid property name conflicts
+      // --- CORRECTED: Use capital 'Variation' ---
       const { Variation, ...productData } = product;
-
-      // Return a new object with variations property
-      return {
-        ...productData,
-        variations: Variation,
-      };
+      // --- End Correction ---
+      // Assign to 'variations' (lowercase) as expected by ProductWithVariations type
+      return { ...productData, variations: Variation };
     });
 
-    return {
-      success: true,
-      products: transformedProducts,
-    };
+    return { success: true, products: transformedProducts };
   } catch (error) {
     console.error("Server Error fetching all products:", error);
-    return {
-      success: false,
-      error: "Failed to fetch all products",
-    };
+    return { success: false, error: "Failed to fetch all products" };
   }
 }
 
 /**
- * Fetches a single product by ID with its variations
- * Also checks if the variations are in the user's wishlist
+ * Fetches a single product by ID with its variations and wishlist status.
  */
 export async function getProductById(
   productId: string,
 ): Promise<ProductActionResult & { wishlistStatus?: Record<string, boolean> }> {
   try {
     const product = await prisma.product.findUnique({
-      where: {
-        id: productId,
-        isPublished: true,
-      },
+      where: { id: productId, isPublished: true },
       select: {
         id: true,
         productName: true,
@@ -107,6 +82,7 @@ export async function getProductById(
         createdAt: true,
         updatedAt: true,
         userId: true,
+        // --- CORRECTED: Use capital 'Variation' ---
         Variation: {
           select: {
             id: true,
@@ -119,56 +95,43 @@ export async function getProductById(
             imageUrl: true,
           },
         },
+        // --- End Correction ---
       },
     });
 
     if (!product) {
-      return {
-        success: false,
-        error: "Product not found",
-      };
+      return { success: false, error: "Product not found" };
     }
 
     // Transform the product data
+    // --- CORRECTED: Use capital 'Variation' ---
     const { Variation, ...productData } = product;
-    const transformedProduct = {
-      ...productData,
-      variations: Variation,
-    };
+    // --- End Correction ---
+    const transformedProduct = { ...productData, variations: Variation }; // Assign to 'variations'
 
-    // Check if the user is logged in using Lucia auth
+    // Check wishlist status
     const { user } = await validateRequest();
     let wishlistStatus: Record<string, boolean> = {};
-
     if (user) {
-      const userId = user.id;
-
-      // Find the user's wishlist
       const wishlist = await prisma.wishlist.findUnique({
-        where: { userId },
-        include: {
-          items: {
-            select: {
-              variationId: true,
-            },
-          },
-        },
+        where: { userId: user.id },
+        include: { items: { select: { variationId: true } } },
       });
-
       if (wishlist) {
-        // Create a map of variation IDs to wishlist status
         const wishlistVariationIds = new Set(
           wishlist.items.map((item) => item.variationId),
         );
-
-        // Set wishlist status for each variation
+        // --- CORRECTED: Use capital 'Variation' from fetched product ---
+        // --- ADDED explicit types for reduce parameters ---
         wishlistStatus = Variation.reduce(
-          (acc, variation) => {
-            acc[variation.id] = wishlistVariationIds.has(variation.id);
+          (acc: Record<string, boolean>, v: VariationType) => {
+            // Use VariationType from import or define locally
+            acc[v.id] = wishlistVariationIds.has(v.id);
             return acc;
           },
           {} as Record<string, boolean>,
         );
+        // --- End Correction / Type Add ---
       }
     }
 
@@ -179,9 +142,81 @@ export async function getProductById(
     };
   } catch (error) {
     console.error(`Server Error fetching product with ID ${productId}:`, error);
+    return { success: false, error: "Failed to fetch product" };
+  }
+}
+
+/**
+ * Fetches related products based on category.
+ */
+export async function getRelatedProducts(
+  productId: string,
+  limit: number = 4,
+): Promise<ProductActionResult> {
+  try {
+    const currentProduct = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { category: true },
+    });
+
+    if (!currentProduct || currentProduct.category.length === 0) {
+      return { success: true, products: [] };
+    }
+
+    const related = await prisma.product.findMany({
+      where: {
+        id: { not: productId },
+        isPublished: true,
+        category: { hasSome: currentProduct.category },
+      },
+      take: limit,
+      select: {
+        id: true,
+        productName: true,
+        category: true,
+        productImgUrl: true,
+        description: true,
+        sellingPrice: true,
+        isPublished: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
+        // --- CORRECTED: Use capital 'Variation' ---
+        Variation: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+            size: true,
+            sku: true,
+            quantity: true,
+            price: true,
+            imageUrl: true,
+          },
+        },
+        // --- End Correction ---
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Transform the data
+    const transformedProducts = related.map((product) => {
+      // --- CORRECTED: Use capital 'Variation' ---
+      const { Variation, ...productData } = product;
+      // --- End Correction ---
+      return { ...productData, variations: Variation }; // Assign to 'variations'
+    });
+
+    return { success: true, products: transformedProducts };
+  } catch (error) {
+    console.error(
+      `Server Error fetching related products for ${productId}:`,
+      error,
+    );
     return {
       success: false,
-      error: "Failed to fetch product",
+      error: "Failed to fetch related products",
+      products: [],
     };
   }
 }
