@@ -2,10 +2,10 @@
 "use client";
 
 import { useMemo } from "react";
-import ColorSwatch from "./ColorSwatch"; // Assuming ColorSwatch handles its own dark mode ok
-import { cn } from "@/lib/utils"; // Import cn
+import ColorSwatch from "./ColorSwatch";
+import { cn } from "@/lib/utils";
 
-// Keep Variation type definition or import it
+// Variation interface (ensure consistency)
 interface Variation {
   id: string;
   name: string;
@@ -34,81 +34,124 @@ const VariationSelector = ({
   onSizeSelect,
   currentVariation,
 }: VariationSelectorProps) => {
-  // Get unique colors
-  const colors = useMemo(
-    () => [...new Set(variations.map((v) => v.color))],
-    [variations],
-  );
+  // Get unique colors available across all variations
+  const colors = useMemo(() => {
+    const colorSet = new Set<string>();
+    variations.forEach((v) => colorSet.add(v.color));
+    return Array.from(colorSet);
+  }, [variations]);
 
-  // Get sizes available for the selected color
+  // Get unique sizes available FOR THE CURRENTLY SELECTED color
   const availableSizes = useMemo(() => {
     if (!selectedColor) return [];
-    return variations
-      .filter((v) => v.color === selectedColor)
-      .map((v) => v.size)
-      .filter((size, index, self) => self.indexOf(size) === index);
+    const sizeSet = new Set<string>();
+    variations.forEach((v) => {
+      if (v.color === selectedColor) {
+        sizeSet.add(v.size);
+      }
+    });
+    return Array.from(sizeSet);
   }, [variations, selectedColor]);
+
+  // Determine if a specific size button should be disabled
+  const isSizeDisabled = (size: string): boolean => {
+    if (!selectedColor) return true;
+    const variationExists = variations.find(
+      (v) => v.color === selectedColor && v.size === size,
+    );
+    return !variationExists; //|| variationExists.quantity <= 0; // Uncomment to disable out-of-stock
+  };
 
   return (
     <div className="space-y-4">
-      {" "}
-      {/* Increased spacing */}
-      {/* Colors */}
+      {/* Colors Section */}
       <div>
-        {/* Use theme text color */}
-        <h3 className="text-sm font-medium mb-2 text-foreground">Colors</h3>
-        <div className="flex flex-wrap gap-2">
+        <label
+          id="color-label"
+          className="text-sm font-medium mb-2 block text-foreground"
+        >
+          Color:{" "}
+          <span className="text-muted-foreground">
+            {selectedColor || "Select a color"}
+          </span>
+        </label>
+        <div aria-labelledby="color-label" className="flex flex-wrap gap-2">
           {colors.map((color) => (
             <ColorSwatch
               key={color}
               color={color}
               selected={selectedColor === color}
               onClick={() => onColorSelect(color)}
+              // Assume ColorSwatch handles its own selected state visually/semantically
             />
           ))}
         </div>
       </div>
-      {/* Sizes */}
-      <div>
-        {/* Use theme text color */}
-        <h3 className="text-sm font-medium mb-2 text-foreground">Sizes</h3>
-        <div className="flex flex-wrap gap-2">
-          {availableSizes.map((size) => (
-            <button // Use button for better semantics/focus
-              key={size}
-              type="button"
-              className={cn(
-                // Use cn for conditional classes
-                "px-3 py-1 border rounded text-sm cursor-pointer transition-colors duration-150 ease-in-out",
-                "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 dark:focus:ring-offset-background", // Focus styles
-                selectedSize === size
-                  ? "bg-primary text-primary-foreground border-primary" // Selected styles
-                  : "bg-background text-foreground border-border hover:bg-accent hover:text-accent-foreground", // Default/hover styles
-              )}
-              onClick={() => onSizeSelect(size)}
-            >
-              {size}
-            </button>
-          ))}
+
+      {/* Sizes Section - Only show if a color is selected */}
+      {selectedColor && (
+        <div>
+          <label
+            id="size-label"
+            className="text-sm font-medium mb-2 block text-foreground"
+          >
+            Size:{" "}
+            <span className="text-muted-foreground">
+              {selectedSize || "Select a size"}
+            </span>
+          </label>
+          <div aria-labelledby="size-label" className="flex flex-wrap gap-2">
+            {availableSizes.length > 0 ? (
+              availableSizes.map((size) => {
+                const isDisabled = isSizeDisabled(size);
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    // --- REMOVED aria-checked attribute ---
+                    disabled={isDisabled}
+                    className={cn(
+                      "px-3 py-1 border rounded text-sm transition-colors duration-150 ease-in-out",
+                      "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 dark:focus:ring-offset-background",
+                      selectedSize === size
+                        ? "bg-primary text-primary-foreground border-primary" // Selected style
+                        : isDisabled
+                          ? "bg-muted text-muted-foreground border-border opacity-50 cursor-not-allowed" // Disabled style
+                          : "bg-background text-foreground border-border hover:bg-accent hover:text-accent-foreground", // Default/hover style
+                    )}
+                    onClick={() => !isDisabled && onSizeSelect(size)} // Prevent click if disabled
+                  >
+                    {size}
+                  </button>
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No sizes available for selected color.
+              </p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
       {/* Stock info */}
       {currentVariation && (
-        <div className="my-3 text-sm">
+        <div className="mt-3 text-sm">
           <p
             className={cn(
-              // Use cn for dynamic class
+              "font-medium",
               currentVariation.quantity > 0
-                ? "text-green-600 dark:text-green-500" // Dark mode green
-                : "text-destructive dark:text-destructive", // Use destructive theme color
+                ? "text-green-600 dark:text-green-500"
+                : "text-destructive",
             )}
           >
             {currentVariation.quantity > 0
               ? `In Stock (${currentVariation.quantity} available)`
               : "Out of Stock"}
           </p>
-          {/* Use muted foreground */}
-          <p className="text-muted-foreground">SKU: {currentVariation.sku}</p>
+          <p className="text-muted-foreground text-xs mt-0.5">
+            SKU: {currentVariation.sku}
+          </p>
         </div>
       )}
     </div>

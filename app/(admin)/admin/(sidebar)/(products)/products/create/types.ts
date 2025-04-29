@@ -1,5 +1,3 @@
-// types.ts
-
 // Define allowed image types
 export const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
@@ -32,6 +30,7 @@ export interface Product {
   description: string;
   sellingPrice: number;
   isPublished: boolean;
+  isFeatured?: boolean; // Added isFeatured (optional here)
   variations?: Variation[];
 }
 

@@ -1,20 +1,26 @@
+// prisma/schema.prisma (within Product model)
+
 model Product {
-    id String @id @default(uuid())
+  id String @id @default(uuid())
 
-    productName   String   @map("product_name")
-    category      String[]
-    productImgUrl String
-    description   String
-    sellingPrice  Float    @map("selling_price")
-    isPublished   Boolean  @default(true)
+  productName   String   @map("product_name")
+  category      String[]
+  productImgUrl String
+  description   String
+  sellingPrice  Float    @map("selling_price")
+  isPublished   Boolean  @default(true)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  // --- ADD THIS LINE ---
+  isFeatured   Boolean  @default(false)
+  // --- END ADDITION ---
 
-    userId       String
-    user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-    Variation    Variation[]
-    WishlistItem WishlistItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@map("products")
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Variation    Variation[]
+  WishlistItem WishlistItem[]
+
+  @@map("products")
 }

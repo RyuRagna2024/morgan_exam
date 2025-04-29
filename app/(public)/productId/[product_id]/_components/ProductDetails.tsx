@@ -1,12 +1,12 @@
-// app/(public)/productId/[product_id]/_components/ProductDetails.tsx
 "use client";
 
 import { useParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useProductDetails } from "../useProductDetails"; // Adjust path if needed
+import { useProductDetails } from "../useProductDetails";
 import ProductImage from "./ProductImage";
 import VariationSelector from "./VariationSelector";
+import ImageThumbnailSelector from "./ImageThumbnailSelector"; // Import gallery component
 import ProductStatus from "./ProductStatus";
 import WishlistButton from "./WishlistButton";
 import { useTierDiscount } from "@/app/(public)/(group-products)/_components/(filterside)/tier-util";
@@ -14,11 +14,10 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-// import { Separator } from "@/components/ui/separator"; // Can remove if not used
 import { Skeleton } from "@/components/ui/skeleton";
 
 // formatCurrency Helper Function
-const formatCurrency = (amount: number | null | undefined) => {
+const formatCurrency = (amount: number | null | undefined): string => {
   if (typeof amount !== "number" || isNaN(amount)) {
     return "R0,00";
   }
@@ -57,16 +56,16 @@ export default function ProductDetails({
   const params = useParams();
   const productIdParam = params?.product_id || params?.productId;
 
-  // --- State ---
+  // State
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
-  const [selectedVariationImage, setSelectedVariationImage] = useState<
+  const [selectedGalleryImageUrl, setSelectedGalleryImageUrl] = useState<
     string | null
   >(null);
   const [quantity, setQuantity] = useState<number>(1);
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
 
-  // --- Hooks ---
+  // Hooks
   const { hasDiscount, calculatePrice, userTier, discountPercentage } =
     useTierDiscount();
   const { product, isLoading, error } = useProductDetails({
@@ -74,84 +73,118 @@ export default function ProductDetails({
     autoLoad: true,
   });
 
-  // --- Memos ---
+  // Determine Display Mode
+  const isGalleryMode = useMemo(() => {
+    if (!product?.variations || product.variations.length <= 1) return false;
+    const firstColor = product.variations[0].color;
+    const firstSize = product.variations[0].size;
+    return product.variations.every(
+      (v) => v.color === firstColor && v.size === firstSize,
+    );
+    // Replace with `product?.variationDisplayMode === 'ImageGallery'` if using the flag
+  }, [product]);
+
+  // Memos
   const currentVariation = useMemo<Variation | null>(() => {
-    if (!product?.variations || !selectedColor || !selectedSize) return null;
+    if (
+      isGalleryMode ||
+      !product?.variations ||
+      !selectedColor ||
+      !selectedSize
+    )
+      return null;
     return (
       product.variations.find(
         (v) => v.color === selectedColor && v.size === selectedSize,
       ) || null
     );
-  }, [product, selectedColor, selectedSize]);
+  }, [product, selectedColor, selectedSize, isGalleryMode]);
+
+  const primaryVariationForCart = useMemo<Variation | null>(() => {
+    if (!product?.variations || product.variations.length === 0) return null;
+    return product.variations[0];
+  }, [product]);
+
+  const displayVariationForPriceAndStock = isGalleryMode
+    ? primaryVariationForCart
+    : currentVariation;
+
   const discountedVariationPrice = useMemo(() => {
-    if (!currentVariation) return null;
-    return calculatePrice(currentVariation.price);
-  }, [currentVariation, calculatePrice]);
+    if (!displayVariationForPriceAndStock) return null;
+    return calculatePrice(displayVariationForPriceAndStock.price);
+  }, [displayVariationForPriceAndStock, calculatePrice]);
+
   const tierName = userTier.charAt(0) + userTier.slice(1).toLowerCase();
 
-  // --- Effects ---
+  // Effects
   useEffect(() => {
-    if (product?.variations?.length) {
-      const first = product.variations[0];
-      if (!selectedColor || !selectedSize) {
-        setSelectedColor(first.color);
-        setSelectedSize(first.size);
-        setSelectedVariationImage(first.imageUrl);
-        setQuantity(1);
-      }
-    }
-  }, [product, selectedColor, selectedSize]);
-  useEffect(() => {
-    if (currentVariation) {
-      setSelectedVariationImage(currentVariation.imageUrl);
-    }
-    if (!currentVariation && selectedColor && selectedSize) {
-      setQuantity(1);
-    }
-  }, [currentVariation, selectedColor, selectedSize]);
+    setSelectedGalleryImageUrl(null);
 
-  // --- Handlers ---
+    if (!isGalleryMode && product?.variations?.length) {
+      if (product.variations.length === 1) {
+        const uniqueVariation = product.variations[0];
+        setSelectedColor(uniqueVariation.color);
+        setSelectedSize(uniqueVariation.size);
+      } else if (selectedColor === null && selectedSize === null) {
+        setSelectedColor(null);
+        setSelectedSize(null);
+      }
+    } else if (!isGalleryMode) {
+      setSelectedColor(null);
+      setSelectedSize(null);
+    }
+    setQuantity(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product, isGalleryMode]);
+
+  // Handlers
   const handleColorSelect = (color: string): void => {
+    if (isGalleryMode) return;
     setSelectedColor(color);
     if (!product?.variations) return;
-    const vfc = product.variations.filter((v) => v.color === color);
-    const sfc = vfc.map((v) => v.size);
-    const fas = sfc[0];
-    const ns = sfc.includes(selectedSize as string) ? selectedSize : fas;
-    setSelectedSize(ns);
-    const v = vfc.find((v) => v.size === ns);
-    if (v) {
-      setSelectedVariationImage(v.imageUrl);
-    }
-    setQuantity(1);
-  };
-  const handleSizeSelect = (size: string): void => {
-    setSelectedSize(size);
-    const v = product?.variations?.find(
-      (v) => v.color === selectedColor && v.size === size,
+    const variationsWithNewColor = product.variations.filter(
+      (v) => v.color === color,
     );
-    if (v) {
-      setSelectedVariationImage(v.imageUrl);
-    }
+    const availableSizesForNewColor = variationsWithNewColor.map((v) => v.size);
+    const newSize = availableSizesForNewColor.includes(selectedSize as string)
+      ? selectedSize
+      : (availableSizesForNewColor[0] ?? null);
+    setSelectedSize(newSize);
     setQuantity(1);
   };
+
+  const handleSizeSelect = (size: string): void => {
+    if (isGalleryMode) return;
+    setSelectedSize(size);
+    setQuantity(1);
+  };
+
+  const handleGalleryImageSelect = (imageUrl: string): void => {
+    setSelectedGalleryImageUrl(imageUrl);
+  };
+
   const handleAddToCart = async (buyNow = false) => {
-    if (!currentVariation) {
-      toast.error("Please select options.");
+    const variationToAdd = isGalleryMode
+      ? primaryVariationForCart
+      : currentVariation;
+    if (!variationToAdd) {
+      toast.error(
+        "Please select valid product options or product is unavailable.",
+      );
       return;
     }
-    if (quantity <= 0 || quantity > currentVariation.quantity) {
-      toast.error("Invalid quantity or exceeds stock.");
+    if (quantity <= 0 || quantity > variationToAdd.quantity) {
+      toast.error("Invalid quantity selected or exceeds available stock.");
       return;
     }
     setIsAddingToCart(true);
     try {
       const result = await addToCartAction({
-        variationId: currentVariation.id,
+        variationId: variationToAdd.id,
         quantity: quantity,
       });
       if (result.success) {
-        toast.success(`Added ${quantity} item(s) to cart`, {
+        toast.success(result.message || `Added ${quantity} item(s) to cart`, {
           description: product?.productName,
           duration: 3000,
         });
@@ -160,35 +193,35 @@ export default function ProductDetails({
             m.useCartStore.getState().refreshCart(true),
           );
         }
-        if (buyNow) {
+        if (buyNow && typeof window !== "undefined") {
           window.location.href = "/checkout";
         }
       } else {
-        toast.error(result.message || "Failed.");
+        toast.error(result.message || "Failed to add item to cart.");
       }
     } catch (err) {
-      toast.error("Failed to add.");
+      console.error("Add to cart error:", err);
+      toast.error("An error occurred while adding the item to the cart.");
     } finally {
       setIsAddingToCart(false);
     }
   };
 
-  // --- Loading State ---
+  // --- Loading / Error / No Variations States ---
   if (isLoading) {
     return (
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-8 lg:gap-12 animate-pulse p-1">
         <div className="md:col-span-2">
-          <Skeleton className="aspect-square w-full bg-muted rounded-lg" />
+          {" "}
+          <Skeleton className="aspect-square w-full bg-muted rounded-lg" />{" "}
         </div>
         <div className="md:col-span-3 space-y-4 p-6 md:p-8">
-          {" "}
-          {/* Adjusted spacing */}
           <Skeleton className="h-8 w-3/4 bg-muted" />{" "}
           <Skeleton className="h-6 w-1/4 bg-muted" />
           <Skeleton className="h-4 w-full bg-muted" />{" "}
           <Skeleton className="h-4 w-5/6 bg-muted" />
           <Skeleton className="h-16 w-full bg-muted" />{" "}
-          <Skeleton className="h-12 w-full bg-muted" /> {/* Reduced height */}
+          <Skeleton className="h-12 w-full bg-muted" />
           <div className="flex gap-3 mt-auto pt-2">
             {" "}
             <Skeleton className="h-11 flex-1 bg-muted rounded-md" />{" "}
@@ -196,72 +229,110 @@ export default function ProductDetails({
           </div>
         </div>
       </div>
-    ); // <<< Ensure closing parenthesis
+    );
   }
-
-  // --- Error or Product Not Found State ---
   if (error || !product) {
     return (
-      // <<< Wrap ProductStatus for clarity
       <ProductStatus
         isLoading={false}
         error={error}
         productId={productIdParam as string | null}
         isProductFound={false}
       />
-    ); // <<< Ensure closing parenthesis
+    );
   }
-
-  // --- No Variations State ---
   if (!product.variations || product.variations.length === 0) {
     return (
-      // <<< Wrap no variations message
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-card text-card-foreground rounded-lg shadow-sm border border-border overflow-hidden relative p-6">
-          <h1 className="text-2xl lg:text-3xl font-bold mb-2">
-            {product.productName}
-          </h1>
-          <p className="text-muted-foreground">
-            This product is currently unavailable.
-          </p>
+      <div className="max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 lg:gap-12 bg-card text-card-foreground rounded-lg shadow-sm border border-border overflow-hidden p-1">
+          <div className="md:col-span-2 relative p-4 md:p-6 self-start">
+            {" "}
+            <ProductImage
+              imageUrl={product.productImgUrl}
+              productName={product.productName}
+            />{" "}
+          </div>
+          <div className="md:col-span-3 p-6 md:p-8 flex flex-col">
+            <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+              {" "}
+              {product.productName}{" "}
+            </h1>
+            <p className="text-2xl lg:text-3xl font-bold mb-4">
+              {" "}
+              {formatCurrency(product.sellingPrice)}{" "}
+            </p>
+            <p className="text-sm text-muted-foreground mb-6 line-clamp-3">
+              {" "}
+              {product.description}{" "}
+            </p>
+            <div className="mt-auto pt-4 border-t border-border">
+              {" "}
+              <p className="text-center text-muted-foreground font-medium">
+                {" "}
+                This product is currently unavailable or has no selectable
+                options.{" "}
+              </p>{" "}
+            </div>
+          </div>
         </div>
       </div>
-    ); // <<< Ensure closing parenthesis
+    );
   }
+
+  // Determine image to show in the main display
+  const mainDisplayImageUrl = isGalleryMode
+    ? selectedGalleryImageUrl || product.productImgUrl
+    : currentVariation?.imageUrl || product.productImgUrl;
 
   // --- Main Render ---
   return (
     <div className="max-w-6xl mx-auto">
       <div className="grid grid-cols-1 md:grid-cols-5 gap-8 lg:gap-12 bg-card text-card-foreground rounded-lg shadow-sm border border-border overflow-hidden p-1">
-        {/* Image Column */}
-        <div className="md:col-span-2 relative p-4 md:p-6 self-start">
-          {hasDiscount && (
+        {/* Image Column (LEFT) */}
+        <div className="md:col-span-2 relative p-4 md:p-6 self-start flex flex-col">
+          {" "}
+          {/* Added flex flex-col */}
+          {/* Discount Badge */}
+          {hasDiscount && displayVariationForPriceAndStock && (
             <div className="absolute top-2 left-2 z-10 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow">
-              {" "}
-              {Math.round(discountPercentage * 100)}% {tierName} Discount{" "}
+              {Math.round(discountPercentage * 100)}% {tierName} Discount
             </div>
           )}
+          {/* Main Product Image */}
           <ProductImage
-            imageUrl={selectedVariationImage || product.productImgUrl}
+            imageUrl={mainDisplayImageUrl}
             productName={product.productName}
           />
+          {/* Wishlist Button */}
           <div className="absolute top-2 right-2 z-10">
-            {currentVariation && (
+            {primaryVariationForCart && (
               <WishlistButton
-                variationId={currentVariation.id}
+                variationId={primaryVariationForCart.id}
                 productName={product.productName}
                 className="bg-card/70 hover:bg-card/90 backdrop-blur-sm"
               />
             )}
           </div>
-        </div>
-
-        {/* Details Column */}
+          {/* Image Thumbnail Selector (Conditionally Rendered Below Image) */}
+          {isGalleryMode &&
+            product.variations &&
+            product.variations.length > 0 && ( // Ensure variations exist
+              <div className="mt-4 w-full">
+                <ImageThumbnailSelector
+                  variations={product.variations}
+                  productImageUrl={product.productImgUrl}
+                  selectedImageUrl={selectedGalleryImageUrl}
+                  onImageSelect={handleGalleryImageSelect}
+                />
+              </div>
+            )}
+        </div>{" "}
+        {/* End Image Column */}
+        {/* Details Column (RIGHT) */}
         <div className="md:col-span-3 p-6 md:p-8 flex flex-col">
           <h1 className="text-2xl lg:text-3xl font-bold mb-2">
             {product.productName}
           </h1>
-
           {/* Rating */}
           <div className="flex items-center gap-1 mb-3">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -277,55 +348,59 @@ export default function ProductDetails({
             ))}
             <span className="text-sm text-muted-foreground ml-1">(4.5)</span>
           </div>
-
-          {/* Price display */}
-          <div className="mb-4">
-            {hasDiscount && currentVariation ? (
-              <>
-                <p className="text-2xl lg:text-3xl font-bold text-red-600 dark:text-red-500">
+          {/* Price Display */}
+          <div className="mb-4 min-h-[3.5rem]">
+            {displayVariationForPriceAndStock ? (
+              hasDiscount ? (
+                <>
+                  <p className="text-2xl lg:text-3xl font-bold text-red-600 dark:text-red-500">
+                    {" "}
+                    {formatCurrency(discountedVariationPrice)}{" "}
+                  </p>
+                  <p className="text-sm text-muted-foreground line-through mt-0.5">
+                    {" "}
+                    {formatCurrency(
+                      displayVariationForPriceAndStock.price,
+                    )}{" "}
+                  </p>
+                </>
+              ) : (
+                <p className="text-2xl lg:text-3xl font-bold">
                   {" "}
-                  {formatCurrency(discountedVariationPrice)}{" "}
+                  {formatCurrency(displayVariationForPriceAndStock.price)}{" "}
                 </p>
-                <p className="text-sm text-muted-foreground line-through mt-0.5">
-                  {" "}
-                  {formatCurrency(currentVariation.price)}{" "}
-                </p>
-              </>
+              )
             ) : (
               <p className="text-2xl lg:text-3xl font-bold">
                 {" "}
-                {formatCurrency(
-                  currentVariation
-                    ? currentVariation.price
-                    : product.sellingPrice,
-                )}{" "}
+                {formatCurrency(product.sellingPrice)}{" "}
               </p>
             )}
           </div>
-          {hasDiscount && (
+          {hasDiscount && displayVariationForPriceAndStock && (
             <p className="text-xs text-muted-foreground -mt-4 mb-5">
-              {" "}
-              {tierName} member price{" "}
+              {tierName} member price
             </p>
           )}
-
           {/* Description */}
           <p className="text-sm text-muted-foreground mb-6 line-clamp-3">
             {product.description}
           </p>
 
-          {/* Basic Info Table REMOVED */}
-
-          {/* Variation Selector */}
+          {/* Variation Selector (Conditionally Rendered) */}
           <div className="mb-5">
-            <VariationSelector
-              variations={product.variations}
-              selectedColor={selectedColor}
-              selectedSize={selectedSize}
-              onColorSelect={handleColorSelect}
-              onSizeSelect={handleSizeSelect}
-              currentVariation={currentVariation}
-            />
+            {!isGalleryMode &&
+              product.variations &&
+              product.variations.length > 0 && ( // Only render if NOT gallery mode AND variations exist
+                <VariationSelector
+                  variations={product.variations}
+                  selectedColor={selectedColor}
+                  selectedSize={selectedSize}
+                  onColorSelect={handleColorSelect}
+                  onSizeSelect={handleSizeSelect}
+                  currentVariation={currentVariation}
+                />
+              )}
           </div>
 
           {/* Quantity Selector */}
@@ -342,13 +417,17 @@ export default function ProductDetails({
                 variant="outline"
                 size="icon"
                 className="h-9 w-9 rounded-r-none border-r-0"
-                onClick={() => setQuantity(quantity > 1 ? quantity - 1 : 1)}
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
                 disabled={
-                  !currentVariation ||
-                  currentVariation.quantity <= 0 ||
+                  !(isGalleryMode
+                    ? primaryVariationForCart
+                    : currentVariation) ||
+                  (isGalleryMode ? primaryVariationForCart : currentVariation)!
+                    .quantity <= 0 ||
                   isAddingToCart ||
                   quantity <= 1
                 }
+                aria-label="Decrease quantity"
               >
                 {" "}
                 <span className="text-lg">−</span>{" "}
@@ -358,51 +437,89 @@ export default function ProductDetails({
                 id="quantity"
                 className="w-14 h-9 text-center border-y border-border bg-background text-foreground focus:outline-none focus:ring-0 rounded-none disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 min="1"
-                max={currentVariation?.quantity || 1}
+                max={
+                  (isGalleryMode ? primaryVariationForCart : currentVariation)
+                    ?.quantity ?? 1
+                }
                 value={quantity}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  const val = parseInt(e.target.value);
+                  const maxQty =
+                    (isGalleryMode ? primaryVariationForCart : currentVariation)
+                      ?.quantity ?? 1;
+                  let val = parseInt(e.target.value);
                   if (isNaN(val) || val < 1) {
-                    setQuantity(1);
-                  } else if (
-                    currentVariation &&
-                    val > currentVariation.quantity
-                  ) {
-                    setQuantity(currentVariation.quantity);
-                  } else {
-                    setQuantity(val);
+                    val = 1;
+                  } else if (val > maxQty) {
+                    val = maxQty;
                   }
+                  setQuantity(val);
                 }}
                 disabled={
-                  !currentVariation ||
-                  currentVariation.quantity <= 0 ||
+                  !(isGalleryMode
+                    ? primaryVariationForCart
+                    : currentVariation) ||
+                  (isGalleryMode ? primaryVariationForCart : currentVariation)!
+                    .quantity <= 0 ||
                   isAddingToCart
                 }
+                aria-label="Product quantity"
               />
               <Button
                 variant="outline"
                 size="icon"
                 className="h-9 w-9 rounded-l-none border-l-0"
                 onClick={() => {
-                  if (currentVariation) {
-                    setQuantity(
-                      quantity < currentVariation.quantity
-                        ? quantity + 1
-                        : currentVariation.quantity,
-                    );
-                  }
+                  const maxQty =
+                    (isGalleryMode ? primaryVariationForCart : currentVariation)
+                      ?.quantity ?? 1;
+                  setQuantity(Math.min(maxQty, quantity + 1));
                 }}
                 disabled={
-                  !currentVariation ||
-                  currentVariation.quantity <= 0 ||
-                  (currentVariation && quantity >= currentVariation.quantity) ||
+                  !(isGalleryMode
+                    ? primaryVariationForCart
+                    : currentVariation) ||
+                  (isGalleryMode ? primaryVariationForCart : currentVariation)!
+                    .quantity <= 0 ||
+                  quantity >=
+                    ((isGalleryMode
+                      ? primaryVariationForCart
+                      : currentVariation
+                    )?.quantity ?? 1) ||
                   isAddingToCart
                 }
+                aria-label="Increase quantity"
               >
                 {" "}
                 <span className="text-lg">+</span>{" "}
               </Button>
             </div>
+            {/* Stock Display */}
+            {(isGalleryMode ? primaryVariationForCart : currentVariation) && (
+              <p
+                className={cn(
+                  "text-xs mt-1.5",
+                  (isGalleryMode ? primaryVariationForCart : currentVariation)!
+                    .quantity > 0
+                    ? "text-green-600"
+                    : "text-red-600",
+                )}
+              >
+                {(isGalleryMode ? primaryVariationForCart : currentVariation)!
+                  .quantity > 0
+                  ? `In Stock (${(isGalleryMode ? primaryVariationForCart : currentVariation)!.quantity} available)`
+                  : "Out of Stock"}
+              </p>
+            )}
+            {/* Unavailable message */}
+            {!isGalleryMode &&
+              !currentVariation &&
+              selectedColor &&
+              selectedSize && (
+                <p className="text-xs mt-1.5 text-destructive">
+                  {" "}
+                  Selected combination unavailable.{" "}
+                </p>
+              )}
           </div>
 
           {/* Action Buttons */}
@@ -412,17 +529,22 @@ export default function ProductDetails({
               size="lg"
               className="flex-1"
               disabled={
-                !currentVariation ||
-                currentVariation.quantity <= 0 ||
+                !(isGalleryMode ? primaryVariationForCart : currentVariation) ||
+                (isGalleryMode ? primaryVariationForCart : currentVariation)!
+                  .quantity <= 0 ||
                 isAddingToCart ||
-                quantity > (currentVariation?.quantity ?? 0)
+                quantity >
+                  ((isGalleryMode ? primaryVariationForCart : currentVariation)
+                    ?.quantity ?? 0)
               }
               onClick={() => handleAddToCart(false)}
             >
               {isAddingToCart ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
-              {currentVariation && currentVariation.quantity <= 0
+              {(isGalleryMode ? primaryVariationForCart : currentVariation) &&
+              (isGalleryMode ? primaryVariationForCart : currentVariation)!
+                .quantity <= 0
                 ? "Out of Stock"
                 : isAddingToCart
                   ? "Adding..."
@@ -433,10 +555,13 @@ export default function ProductDetails({
               size="lg"
               className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
               disabled={
-                !currentVariation ||
-                currentVariation.quantity <= 0 ||
+                !(isGalleryMode ? primaryVariationForCart : currentVariation) ||
+                (isGalleryMode ? primaryVariationForCart : currentVariation)!
+                  .quantity <= 0 ||
                 isAddingToCart ||
-                quantity > (currentVariation?.quantity ?? 0)
+                quantity >
+                  ((isGalleryMode ? primaryVariationForCart : currentVariation)
+                    ?.quantity ?? 0)
               }
               onClick={() => handleAddToCart(true)}
             >
@@ -448,5 +573,5 @@ export default function ProductDetails({
       </div>
       {/* End Grid */}
     </div> // End Max Width Container
-  ); // <<< FINAL Closing Parenthesis
-} // <<< FINAL Closing Brace
+  );
+}
