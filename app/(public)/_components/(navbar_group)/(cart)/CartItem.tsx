@@ -18,22 +18,18 @@ const CartItem = ({
   onRemove,
   discountPercentage,
 }: CartItemProps) => {
-  // Calculate discounted price
   const originalPrice = item.variation.price;
   const discountedPrice = originalPrice * (1 - discountPercentage);
   const hasDiscount = discountPercentage > 0;
 
-  // Local state to track quantity before sending to server
   const [localQuantity, setLocalQuantity] = useState(item.quantity);
   const [inputMode, setInputMode] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Timer refs for button hold functionality
   const incrementTimerRef = useRef<NodeJS.Timeout | null>(null);
   const decrementTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasChangedRef = useRef(false);
 
-  // Clear any active timers when unmounting
   useEffect(() => {
     return () => {
       if (incrementTimerRef.current) clearInterval(incrementTimerRef.current);
@@ -41,14 +37,12 @@ const CartItem = ({
     };
   }, []);
 
-  // Update local quantity when item quantity changes from props
   useEffect(() => {
     if (!hasChangedRef.current) {
       setLocalQuantity(item.quantity);
     }
   }, [item.quantity]);
 
-  // Handle saving changes to the server
   const handleSaveChanges = () => {
     if (localQuantity !== item.quantity) {
       if (localQuantity === 0) {
@@ -56,12 +50,11 @@ const CartItem = ({
       } else {
         onUpdateQuantity(item.id, localQuantity);
       }
+      hasChangedRef.current = false; // Reset after saving
       setHasUnsavedChanges(false);
     }
   };
 
-  // Handle manual input change
-  // Handle manual input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
     if (!isNaN(value) && value >= 0) {
@@ -70,30 +63,32 @@ const CartItem = ({
       hasChangedRef.current = true;
       setHasUnsavedChanges(newQuantity !== item.quantity);
     } else if (e.target.value === "") {
-      setLocalQuantity(0);
+      setLocalQuantity(0); // Allow setting to 0 temporarily
       hasChangedRef.current = true;
       setHasUnsavedChanges(0 !== item.quantity);
     }
   };
 
-  // Handle input blur - only update local state, don't send to server
   const handleInputBlur = () => {
     setInputMode(false);
+    // Save changes on blur if they exist
+    if (hasUnsavedChanges) {
+      handleSaveChanges();
+    }
   };
 
-  // Handle key press events (Enter and Escape)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      handleInputBlur();
+      e.preventDefault(); // Prevent form submission if applicable
+      handleInputBlur(); // Save on Enter
     } else if (e.key === "Escape") {
-      setLocalQuantity(item.quantity);
+      setLocalQuantity(item.quantity); // Revert changes
       setInputMode(false);
       hasChangedRef.current = false;
       setHasUnsavedChanges(false);
     }
   };
 
-  // Handle increment with button hold functionality
   const handleIncrementStart = () => {
     if (localQuantity < item.variation.quantity) {
       const newQuantity = localQuantity + 1;
@@ -101,67 +96,66 @@ const CartItem = ({
       hasChangedRef.current = true;
       setHasUnsavedChanges(newQuantity !== item.quantity);
 
-      // Start auto-increment after holding the button
       incrementTimerRef.current = setInterval(() => {
         setLocalQuantity((prev) => {
-          const newValue = prev + 1;
-          if (newValue >= item.variation.quantity) {
-            if (incrementTimerRef.current)
-              clearInterval(incrementTimerRef.current);
-            return item.variation.quantity;
+          const newValue = Math.min(prev + 1, item.variation.quantity);
+          if (
+            newValue === item.variation.quantity &&
+            incrementTimerRef.current
+          ) {
+            clearInterval(incrementTimerRef.current);
           }
           hasChangedRef.current = true;
           setHasUnsavedChanges(newValue !== item.quantity);
           return newValue;
         });
-      }, 150); // Adjust speed of auto-increment
+      }, 150);
     }
   };
 
-  // Handle decrement with button hold functionality
   const handleDecrementStart = () => {
-    if (localQuantity > 1) {
+    // Allow decrementing down to 0 if input mode allows it, otherwise stop at 1
+    const minQuantity = 1; // Change to 0 if you want to allow removing via buttons
+    if (localQuantity > minQuantity) {
       const newQuantity = localQuantity - 1;
       setLocalQuantity(newQuantity);
       hasChangedRef.current = true;
       setHasUnsavedChanges(newQuantity !== item.quantity);
 
-      // Start auto-decrement after holding the button
       decrementTimerRef.current = setInterval(() => {
         setLocalQuantity((prev) => {
-          const newValue = prev - 1;
-          if (newValue <= 1) {
-            if (decrementTimerRef.current)
-              clearInterval(decrementTimerRef.current);
-            return 1;
+          const newValue = Math.max(prev - 1, minQuantity);
+          if (newValue === minQuantity && decrementTimerRef.current) {
+            clearInterval(decrementTimerRef.current);
           }
           hasChangedRef.current = true;
           setHasUnsavedChanges(newValue !== item.quantity);
           return newValue;
         });
-      }, 150); // Adjust speed of auto-decrement
+      }, 150);
     }
   };
 
-  // Stop increment/decrement when button is released
   const handleButtonStop = () => {
     if (incrementTimerRef.current) {
       clearInterval(incrementTimerRef.current);
       incrementTimerRef.current = null;
     }
-
     if (decrementTimerRef.current) {
       clearInterval(decrementTimerRef.current);
       decrementTimerRef.current = null;
     }
-
-    // Update the hasUnsavedChanges state based on actual difference
+    // Update unsaved changes status after button interaction stops
     setHasUnsavedChanges(localQuantity !== item.quantity);
+    // Trigger save immediately after button release if configured
+    // if (hasUnsavedChanges) { handleSaveChanges(); }
   };
 
   return (
-    <div className="flex gap-4 py-4 border-b border-gray-700">
-      <div className="w-20 h-20 flex-shrink-0 bg-gray-800 rounded overflow-hidden">
+    // --- REFACTORED: Use theme-aware border ---
+    <div className="flex gap-4 py-4 border-b border-border">
+      {/* --- REFACTORED: Use theme-aware background --- */}
+      <div className="w-20 h-20 flex-shrink-0 bg-muted rounded overflow-hidden">
         {item.variation.imageUrl ? (
           <Image
             src={item.variation.imageUrl}
@@ -179,7 +173,8 @@ const CartItem = ({
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-700 text-gray-500">
+          // --- REFACTORED: Use theme-aware background and text ---
+          <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground text-xs">
             No Image
           </div>
         )}
@@ -188,20 +183,25 @@ const CartItem = ({
       <div className="flex-grow">
         <Link
           href={`/products/${item.variation.product.id}`}
-          className="text-white hover:text-red-400 font-medium transition-colors"
+          // --- REFACTORED: Use theme-aware text and hover (using primary color) ---
+          className="text-foreground hover:text-primary font-medium transition-colors"
         >
           {item.variation.product.productName}
         </Link>
-        <p className="text-sm text-gray-400">{item.variation.name}</p>
+        {/* --- REFACTORED: Use theme-aware text --- */}
+        <p className="text-sm text-muted-foreground">{item.variation.name}</p>
         <div className="mt-2 flex justify-between items-center">
           {hasDiscount ? (
             <div>
+              {/* Kept red text for emphasis - ensure contrast */}
               <div className="text-red-400">R{discountedPrice.toFixed(2)}</div>
-              <div className="text-xs text-gray-500 line-through">
+              {/* --- REFACTORED: Use theme-aware text --- */}
+              <div className="text-xs text-muted-foreground line-through">
                 R{originalPrice.toFixed(2)}
               </div>
             </div>
           ) : (
+            // Kept red text for emphasis - ensure contrast
             <div className="text-red-400">R{originalPrice.toFixed(2)}</div>
           )}
 
@@ -212,8 +212,9 @@ const CartItem = ({
               onMouseLeave={handleButtonStop}
               onTouchStart={handleDecrementStart}
               onTouchEnd={handleButtonStop}
-              disabled={localQuantity <= 1}
-              className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-600 text-gray-300 hover:border-red-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={localQuantity <= 1} // Adjust if allowing 0
+              // --- REFACTORED: Use theme-aware border, text and hover ---
+              className="w-7 h-7 flex items-center justify-center rounded-full border border-border text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               aria-label="Decrease quantity"
               title="Decrease quantity (hold to decrease faster)"
             >
@@ -230,20 +231,24 @@ const CartItem = ({
                 </label>
                 <input
                   id={`quantity-input-${item.id}`}
-                  type="text"
+                  type="number" // Use number type for better mobile experience
                   value={localQuantity}
                   onChange={handleInputChange}
                   onBlur={handleInputBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Qty"
                   aria-label="Product quantity"
-                  className="w-12 bg-gray-800 text-white text-center border border-gray-600 rounded focus:border-red-500 focus:outline-none px-1"
+                  min="0" // Allow 0 if needed for removal logic via input
+                  max={item.variation.quantity}
+                  // --- REFACTORED: Use theme-aware bg, text, border, focus ---
+                  className="w-12 bg-input text-foreground text-center border border-border rounded focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-1"
                   autoFocus
                 />
               </div>
             ) : (
               <span
-                className="w-8 text-center text-white cursor-pointer hover:text-red-400"
+                // --- REFACTORED: Use theme-aware text and hover ---
+                className="w-8 text-center text-foreground cursor-pointer hover:text-primary"
                 onClick={() => setInputMode(true)}
                 title="Click to edit quantity"
                 role="button"
@@ -262,7 +267,8 @@ const CartItem = ({
               onTouchStart={handleIncrementStart}
               onTouchEnd={handleButtonStop}
               disabled={localQuantity >= item.variation.quantity}
-              className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-600 text-gray-300 hover:border-red-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              // --- REFACTORED: Use theme-aware border, text and hover ---
+              className="w-7 h-7 flex items-center justify-center rounded-full border border-border text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               aria-label="Increase quantity"
               title="Increase quantity (hold to increase faster)"
             >
@@ -271,9 +277,13 @@ const CartItem = ({
 
             <button
               onClick={() => onRemove(item.id)}
-              className="ml-3 text-gray-400 hover:text-red-500 transition-colors"
+              // --- REFACTORED: Use theme-aware text, keep red hover for destructive action ---
+              className="ml-3 text-muted-foreground hover:text-red-500 transition-colors"
+              // Alternative: use destructive theme color
+              // className="ml-3 text-muted-foreground hover:text-destructive transition-colors"
               aria-label="Remove item"
             >
+              {/* Simple Trash Icon SVG */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="18"
@@ -293,9 +303,17 @@ const CartItem = ({
           </div>
         </div>
 
-        {/* Update Cart Button - only shown when changes have been made */}
+        {/* Update Cart Button */}
         {hasUnsavedChanges && (
           <div className="mt-2 text-right">
+            {/* Kept red for emphasis - ensure contrast */}
+            {/* Alternative: Use primary theme color */}
+            {/* <button
+              onClick={handleSaveChanges}
+              className="px-3 py-1 text-xs bg-primary hover:bg-primary/90 text-primary-foreground rounded transition-colors"
+            >
+              Update Cart
+            </button> */}
             <button
               onClick={handleSaveChanges}
               className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded transition-colors"

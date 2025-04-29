@@ -1,4 +1,3 @@
-// app/(public)/(group-products)/_components/EditableCollectionBanner.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -92,15 +91,19 @@ export default function EditableCollectionBanner({
   };
 
   if (isLoadingInitialData) {
-    return <Skeleton className="w-full aspect-[4/1] mb-8 rounded-md" />;
+    // --- UPDATED MARGIN HERE FOR SKELETON ---
+    return <Skeleton className="w-full aspect-[4/1] mb-6 md:mb-8 rounded-md" />;
   }
 
   if (!currentBannerUrl && !isEditor) {
-    return null;
+    return null; // Renders nothing, so no margin needed in this case
   }
 
   return (
-    <div className="w-full mb-8 relative group">
+    // --- UPDATED MARGIN HERE ON ROOT ELEMENT ---
+    <div className="w-full mb-6 md:mb-8 relative group">
+      {" "}
+      {/* Changed mb-8 to mb-6 md:mb-8 */}
       {/* Banner Display Area */}
       <div className="relative w-full aspect-[4/1] overflow-hidden rounded-md shadow-sm bg-gray-100 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-700">
         {currentBannerUrl ? (
@@ -148,7 +151,6 @@ export default function EditableCollectionBanner({
           </div>
         )}
       </div>
-
       {/* --- Render BannerEditModal --- */}
       {/* It controls its own visibility via the 'open' prop */}
       <BannerEditModal
@@ -160,7 +162,6 @@ export default function EditableCollectionBanner({
         onSuccess={handleEditSuccess} // Pass callback to update state
       />
       {/* --- End BannerEditModal --- */}
-
       {/* --- Delete Confirmation AlertDialog (Stays the Same) --- */}
       {isEditor && ( // Still need conditional render based on role
         <AlertDialog

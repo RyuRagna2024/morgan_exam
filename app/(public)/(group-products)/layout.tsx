@@ -1,11 +1,10 @@
-// app/(public)/(group-products)/layout.tsx
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import FilterSidebar from "./_components/(filterside)/FilterSidebar";
 import { useProductStore } from "./_components/_store/product-store";
-import EditableCollectionBanner from "./_components/EditableCollectionBanner";
+import EditableCollectionBanner from "./_components/EditableCollectionBanner"; // Ensure this component handles its own bottom margin
 import { getCollectionBanner } from "./_actions/bannerActions";
 
 // Define known categories and their display names
@@ -70,50 +69,45 @@ export default function ProductsLayout({
     fetchBannerForLayout();
   }, [currentCategory]);
 
+  // Calculate sticky top offset (assuming h-16 navbar + 1rem gap = 5rem = top-20)
+  // Adjust '5rem' and 'top-20' if your navbar height or desired gap is different
+  const stickyTopOffset = "5rem"; // Example: 4rem navbar + 1rem gap
+  const stickyTopClass = "top-20"; // Corresponding Tailwind class
+
   return (
-    // --- ADJUSTED MARGIN HERE ---
-    // Reduced top margin to create space ABOVE banner
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-      {/* --- BANNER SECTION --- */}
-      {/* Conditionally render banner or error message */}
-      {/* Note: EditableCollectionBanner already includes mb-6/md:mb-8, which contributes to spacing below */}
+      {/* Banner Section */}
       {currentCategory && (
         <EditableCollectionBanner
           initialBannerUrl={bannerUrl}
           category={currentCategory}
           categoryName={currentCategoryName}
           isLoading={isLoadingBanner}
+          // Ensure the EditableCollectionBanner component itself adds bottom margin (e.g., mb-6 md:mb-8) internally
         />
       )}
       {bannerError && !isLoadingBanner && (
+        // Keep margin on the error message container
         <div className="text-center py-4 text-red-500 mb-6 md:mb-8 border border-red-200 bg-red-50 rounded-md">
           Could not load collection banner: {bannerError}
         </div>
       )}
-      {/* --- END BANNER --- */}
 
-      {/* --- ADJUSTED MARGIN HERE --- */}
       {/* Container for Filters + Main Content */}
-      {/* Added top margin to create space BELOW banner */}
-      {/* NOTE: If the banner section above renders nothing (e.g., no banner URL and not editor),
-           this margin will apply directly below the site navbar (plus the outer div's mt-8).
-           If banner IS rendered, its own bottom margin (mb-6/md:mb-8) also adds space.
-           Consider removing mb-* from EditableCollectionBanner if you want *only* this mt-8 below it.
-           Let's keep both for now for clear separation. */}
-      <div className="flex flex-col lg:flex-row gap-x-8 mt-8">
+      {/* --- MODIFIED: Added lg:items-start --- */}
+      <div className="flex flex-col lg:flex-row gap-x-8 mt-8 lg:items-start">
         {/* Sidebar */}
         <aside className="w-full lg:w-64 lg:flex-shrink-0 mb-6 lg:mb-0">
-          <div className="lg:sticky top-28">
-            {" "}
-            {/* Adjust sticky top offset if needed due to navbar height changes */}
+          {/* Sticky wrapper remains the same */}
+          <div
+            className={`lg:sticky ${stickyTopClass} lg:max-h-[calc(100vh-${stickyTopOffset})] lg:overflow-y-auto`}
+          >
             <FilterSidebar />
           </div>
         </aside>
 
-        {/* Main Content Area (page content like grid, title) */}
-        <main className="flex-1 min-w-0">
-          {children} {/* Renders the specific page.tsx output */}
-        </main>
+        {/* Main Content Area */}
+        <main className="flex-1 min-w-0">{children}</main>
       </div>
     </div>
   );
