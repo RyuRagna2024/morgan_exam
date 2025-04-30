@@ -1,13 +1,14 @@
-// app/(public)/checkout/checkout-order.ts // <<< Use this filename
+// app/(public)/checkout/checkout-actions.ts
 "use server";
 
 import { z } from "zod";
-import { validateRequest } from "@/auth"; // Your auth function
-import prisma from "@/lib/prisma"; // Your prisma client instance
-import { stripe } from "@/lib/stripe"; // Your initialized stripe client
-import { Tier, OrderStatus, Prisma } from "@prisma/client";
-import { orderValidationSchema } from "./order-validations"; // Make sure path is correct
-// Make sure path is correct for order-types
+import { validateRequest } from "@/auth"; // Adjust path as needed
+import prisma from "@/lib/prisma"; // Adjust path as needed
+import { stripe } from "@/lib/stripe"; // Adjust path as needed
+import { Tier, OrderStatus, Prisma, User } from "@prisma/client"; // Import necessary Prisma types
+
+// Adjust import paths for these if they are in different locations
+import { orderValidationSchema } from "./order-validations";
 import type {
   OrderInput,
   PrepareSessionResult,
@@ -16,13 +17,15 @@ import type {
   OrderWithRelations,
 } from "./order-types";
 
-// --- Tier Discount Logic (Ensure this is accurate) ---
+// --- Tier Discount Logic ---
+// IMPORTANT: Ensure this matches any other place you calculate discounts!
 const TIER_DISCOUNTS: Record<Tier, number> = {
   [Tier.BRONZE]: 0,
   [Tier.SILVER]: 0.05,
   [Tier.GOLD]: 0.1,
   [Tier.PLATINUM]: 0.15,
 };
+
 function calculateDiscountedPrice(price: number, tier: Tier): number {
   const discountPercentage = TIER_DISCOUNTS[tier] || 0;
   if (typeof price !== "number" || isNaN(price)) {
@@ -31,8 +34,10 @@ function calculateDiscountedPrice(price: number, tier: Tier): number {
   }
   return parseFloat((Number(price) * (1 - discountPercentage)).toFixed(2));
 }
+// --- End Tier Discount Logic ---
 
-// --- Action 1: Prepare Checkout Session ---
+// === Action 1: Prepare Checkout Session ===
+// Validates details, calculates amount, creates Stripe PaymentIntent with metadata
 export async function prepareCheckoutSession(
   details: OrderInput,
 ): Promise<PrepareSessionResult> {
@@ -52,7 +57,7 @@ export async function prepareCheckoutSession(
       `[Action] prepareCheckoutSession: User ${user.id}, Tier ${userTier}`,
     );
 
-    // 2. Validate Input Details
+    // 2. Validate Input Details (Server-side check)
     const validationResult = orderValidationSchema.safeParse(details);
     if (!validationResult.success) {
       console.warn(
@@ -90,7 +95,7 @@ export async function prepareCheckoutSession(
           `[Action] prepareCheckoutSession: Invalid price for variation ${item.variationId}.`,
         );
         throw new Error(
-          `Invalid price configuration for item ${item.variation.productId}`,
+          `Invalid price configuration for item variation ${item.variationId}`,
         );
       }
       const discountedPrice = calculateDiscountedPrice(
@@ -104,12 +109,11 @@ export async function prepareCheckoutSession(
 
     if (amountInCents <= 0) {
       console.warn(
-        `[Action] prepareCheckoutSession: Calculated amount is zero or negative (${amountInCents}).`,
+        `[Action] prepareCheckoutSession: Calculated amount zero or negative (${amountInCents}).`,
       );
       return { success: false, error: "Order amount must be positive." };
     }
-    // --- ADJUST CURRENCY ---
-    const currencyCode = "usd"; // <<< CHANGE TO 'zar' or your desired currency code
+    const currencyCode = "usd"; // <<< CHANGE TO 'zar' or your currency
     console.log(
       `[Action] prepareCheckoutSession: Calculated total ${amountInCents} ${currencyCode.toUpperCase()} cents`,
     );
@@ -120,7 +124,6 @@ export async function prepareCheckoutSession(
       userEmail: validatedDetails.email,
       tier: userTier,
       cartId: userCart.id,
-      // --- Include details needed by webhook ---
       firstName: validatedDetails.firstName,
       lastName: validatedDetails.lastName,
       companyName: validatedDetails.companyName,
@@ -154,11 +157,10 @@ export async function prepareCheckoutSession(
     console.log(
       "[Action] prepareCheckoutSession: Creating Stripe PaymentIntent...",
     );
-    // --- Ensure country code is 2 letters for Stripe Address ---
     const countryCode =
       validatedDetails.countryRegion.length === 2
         ? validatedDetails.countryRegion.toUpperCase()
-        : "ZA"; // Default to ZA if not 2 letters
+        : "ZA"; // Default needed? Ensure valid 2-letter code
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountInCents,
       currency: currencyCode,
@@ -166,7 +168,6 @@ export async function prepareCheckoutSession(
       metadata: metadataForStripe,
       description: `Order from ${validatedDetails.email} (${user.id})`,
       shipping: {
-        // Pass shipping details
         name: `${validatedDetails.firstName} ${validatedDetails.lastName}`,
         phone: validatedDetails.phone,
         address: {
@@ -175,7 +176,7 @@ export async function prepareCheckoutSession(
           city: validatedDetails.townCity,
           state: validatedDetails.province,
           postal_code: validatedDetails.postcode,
-          country: countryCode, // Use 2-letter code
+          country: countryCode,
         },
       },
     });
@@ -194,7 +195,8 @@ export async function prepareCheckoutSession(
   }
 }
 
-// --- Action 2: Get Order Details ---
+// === Action 2: Get Order Details ===
+// Fetches full order details for the confirmation page
 export async function getOrderDetails(
   orderId: string,
 ): Promise<GetOrderDetailsResponse> {
@@ -202,7 +204,6 @@ export async function getOrderDetails(
   if (!orderId) return { success: false, message: "Order ID is required." };
 
   try {
-    // Validate user
     const { user } = await validateRequest();
     if (!user) return { success: false, message: "User not authenticated." };
 
@@ -210,7 +211,7 @@ export async function getOrderDetails(
       where: { id: orderId },
       include: {
         orderItems: { include: { variation: { include: { product: true } } } },
-        // user: true, // Optional
+        // user: true, // Include user if needed
       },
     });
 
@@ -219,35 +220,27 @@ export async function getOrderDetails(
       return { success: false, message: "Order not found.", order: null };
     }
 
-    // Authorize
     if (order.userId !== user.id /* && user.role !== 'ADMIN' */) {
+      // Check authorization
       console.warn(
-        `[Action] getOrderDetails: Unauthorized attempt by user ${user.id} on order ${orderId}.`,
+        `[Action] getOrderDetails: Unauthorized attempt user ${user.id} on order ${orderId}.`,
       );
-      return {
-        success: false,
-        message: "You do not have permission to view this order.",
-        order: null,
-      };
+      return { success: false, message: "Permission denied.", order: null };
     }
 
-    console.log(
-      `[Action] getOrderDetails: Order ${orderId} found and authorized.`,
-    );
-    return { success: true, order: order as OrderWithRelations };
+    console.log(`[Action] getOrderDetails: Order ${orderId} found.`);
+    return { success: true, order: order as OrderWithRelations }; // Cast is safe due to include
   } catch (error) {
     console.error(
       `[Action] getOrderDetails: Error fetching order ${orderId}:`,
       error,
     );
-    return {
-      success: false,
-      message: "An error occurred while fetching order details.",
-    };
+    return { success: false, message: "Server error fetching order details." };
   }
 }
 
-// --- Action 3: Get Order Status By Payment Intent ---
+// === Action 3: Get Order Status By Payment Intent ===
+// Used by the /order/processing page to poll for order creation status
 export async function getOrderStatusByPaymentIntent(
   paymentIntentId: string,
 ): Promise<OrderStatusResult> {
@@ -258,53 +251,47 @@ export async function getOrderStatusByPaymentIntent(
     return {
       success: false,
       status: "failed",
-      error: "Payment Intent ID is missing.",
+      error: "Payment Intent ID missing.",
     };
   }
 
   try {
     const order = await prisma.order.findUnique({
       where: { paymentIntentId: paymentIntentId },
-      select: { id: true, status: true },
+      select: { id: true, status: true }, // Fetch only needed fields
     });
 
     if (order) {
       console.log(
         `[Action] getOrderStatus: Found Order ${order.id} for PI ${paymentIntentId}, Status: ${order.status}`,
       );
-
-      // <<< CORRECTED STATUS ARRAYS >>>
-      // Use only the statuses defined in your OrderStatus enum
+      // Use statuses defined in your OrderStatus enum
       const completedStatuses: OrderStatus[] = [
         OrderStatus.SHIPPED,
         OrderStatus.DELIVERED,
-        // Add others here if they represent a final successful state in your logic
       ];
       const failedStatuses: OrderStatus[] = [
         OrderStatus.CANCELLED,
         OrderStatus.REFUNDED,
-        // Add others here if they represent a final failed state
-      ];
-      // <<< END CORRECTION >>>
+      ]; // Add FAILED if defined
 
       if (completedStatuses.includes(order.status)) {
-        // Treat SHIPPED or DELIVERED as 'completed' for the polling page
         return { success: true, status: "completed", orderId: order.id };
       } else if (failedStatuses.includes(order.status)) {
-        // Treat CANCELLED or REFUNDED as 'failed'
         return {
           success: true,
           status: "failed",
           orderId: order.id,
-          error: `Order status is ${order.status}.`,
+          error: `Order status: ${order.status}.`,
         };
       } else {
-        // Assume PENDING or PROCESSING means it's still in progress
+        // PENDING, PROCESSING
         return { success: true, status: "processing", orderId: order.id };
       }
     } else {
+      // Order not found yet, webhook likely delayed
       console.log(
-        `[Action] getOrderStatus: Order not yet found for PI ${paymentIntentId}. Assuming processing.`,
+        `[Action] getOrderStatus: Order not yet found for PI ${paymentIntentId}. Assume processing.`,
       );
       return { success: true, status: "processing", orderId: null };
     }
@@ -316,7 +303,64 @@ export async function getOrderStatusByPaymentIntent(
     return {
       success: false,
       status: "failed",
-      error: "Server error while checking order status.",
+      error: "Server error checking order status.",
+    };
+  }
+}
+
+// === Action 4: Get Basic User Info for Checkout Pre-fill ===
+// Used by the checkout page (Step 1) to get fallback data
+interface BasicUserInfo {
+  // Define structure for returned user data
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string | null;
+  country: string | null;
+  streetAddress: string | null;
+  suburb: string | null;
+  townCity: string | null;
+  postcode: string | null;
+}
+interface GetBasicUserInfoResult {
+  success: boolean;
+  user: BasicUserInfo | null;
+  error?: string;
+}
+
+export async function getBasicUserInfoForCheckout(): Promise<GetBasicUserInfoResult> {
+  console.log("[Action] getBasicUserInfoForCheckout: Fetching...");
+  try {
+    const { user } = await validateRequest(); // Authenticate
+    if (!user) {
+      console.warn("[Action] getBasicUserInfoForCheckout: Not authenticated.");
+      return { success: false, user: null, error: "User not authenticated." };
+    }
+
+    // Select only necessary fields from the full User model
+    const basicInfo: BasicUserInfo = {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phoneNumber: user.phoneNumber ?? null,
+      country: user.country ?? null,
+      streetAddress: user.streetAddress ?? null,
+      suburb: user.suburb ?? null,
+      townCity: user.townCity ?? null,
+      postcode: user.postcode ?? null,
+    };
+    console.log(
+      `[Action] getBasicUserInfoForCheckout: User ${user.id} info retrieved.`,
+    );
+    return { success: true, user: basicInfo };
+  } catch (error) {
+    console.error("[Action] getBasicUserInfoForCheckout: Error:", error);
+    return {
+      success: false,
+      user: null,
+      error: "Failed to retrieve user information.",
     };
   }
 }

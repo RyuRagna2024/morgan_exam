@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-// --- Profile Info Update Schema ---
+// --- Profile Info Update Schema (Keep as is) ---
 export const profileUpdateSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
@@ -10,43 +10,52 @@ export const profileUpdateSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   email: z.string().email("Invalid email address"),
   phoneNumber: z.string().optional().nullable(),
-  country: z.string().min(1, "Country is required"),
+  country: z.string().min(1, "Country is required"), // User profile uses 'country'
   postcode: z.string().min(1, "Postcode is required"),
-  // --- ADD Missing Address Fields (make optional to match form usage) ---
   streetAddress: z.string().optional().nullable(),
-  suburb: z.string().optional().nullable(), // Represents Apt/Suite in this form
+  suburb: z.string().optional().nullable(),
   townCity: z.string().optional().nullable(),
-  // --- END ADD ---
 });
-
 export type ProfileUpdateFormValues = z.infer<typeof profileUpdateSchema>;
 
-// --- Checkout Details Update Schema ---
-export const checkoutDetailsSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  companyName: z.string().optional(),
-  country: z.string().min(1, "Country/Region is required"),
-  streetAddress: z.string().min(1, "Street address is required"),
-  // --- Use apartmentSuite and phone to match form ---
-  apartmentSuite: z.string().optional(), // Use this name
-  townCity: z.string().min(1, "Town/City is required"),
-  province: z.string().min(1, "Province is required"), // Keep if needed by backend
-  postcode: z.string().min(1, "Postal code is required"),
-  phone: z.string().min(1, "Phone number is required"), // Use this name
-  // --- End Use ---
-  email: z.string().email("Invalid email address"),
+// --- <<< RENAMED & UPDATED: Checkout PREFERENCE Schema >>> ---
+// Fields match UserCheckoutPreference model and are optional for saving preferences
+export const checkoutPreferenceSchema = z.object({
+  firstName: z.string().min(1, "First name is required").nullable().optional(), // Allow clearing preference by submitting empty string (becomes null)
+  lastName: z.string().min(1, "Last name is required").nullable().optional(),
+  companyName: z.string().nullable().optional(), // Optional string
+  countryRegion: z
+    .string()
+    .min(1, "Country/Region is required")
+    .nullable()
+    .optional(), // Naming matches Order/Preference model
+  streetAddress: z
+    .string()
+    .min(1, "Street address is required")
+    .nullable()
+    .optional(),
+  apartmentSuite: z.string().nullable().optional(), // Optional string
+  townCity: z.string().min(1, "Town/City is required").nullable().optional(),
+  province: z.string().min(1, "Province is required").nullable().optional(),
+  postcode: z.string().min(1, "Postal code is required").nullable().optional(),
+  phone: z.string().min(1, "Phone number is required").nullable().optional(),
+  email: z.string().email("Invalid email address").nullable().optional(),
 });
+// <<< RENAMED TYPE >>>
+export type CheckoutPreferenceFormValues = z.infer<
+  typeof checkoutPreferenceSchema
+>;
 
-export type CheckoutDetailsFormValues = z.infer<typeof checkoutDetailsSchema>;
-
-// --- General Action Result Type ---
+// --- General Action Result Types (Keep as is) ---
 export interface UpdateActionResult {
   success?: string | null;
   error?: string | null;
 }
+export interface ProfileUpdateActionResult extends UpdateActionResult {
+  updatedUser?: Partial<ProfileUpdateFormValues>;
+}
 
-// --- Password Change Schema and Type ---
+// --- Password Change Schema and Types (Keep as is) ---
 export const passwordChangeSchema = z
   .object({
     currentPassword: z.string().min(1, "Current password is required"),
@@ -64,10 +73,7 @@ export const passwordChangeSchema = z
     message: "New passwords do not match",
     path: ["confirmNewPassword"],
   });
-
 export type PasswordChangeFormValues = z.infer<typeof passwordChangeSchema>;
-
-// --- Password Change Server Action Result Type ---
 export interface PasswordChangeResult {
   success: boolean;
   message?: string;

@@ -46,6 +46,8 @@ model User {
     sentMessages   Message[]       @relation("SentMessages")
       // --- ADDED RELATION for CollectionBanner ---
     updatedCollectionBanners CollectionBanner[]
+      // Defines the optional one-to-one link back from User to the preference model
+    checkoutPreference     UserCheckoutPreference?
 
     @@map("users")
 }

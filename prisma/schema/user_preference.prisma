@@ -1,0 +1,27 @@
+// prisma/schema/user_preference.prisma
+
+// --- Model for Storing User's Default Checkout Preferences ---
+model UserCheckoutPreference {
+  id        String  @id @default(uuid())
+  // --- Link to User (One-to-One) ---
+  userId    String  @unique // Ensures one preference set per user
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade) // Links back to the User model (defined elsewhere)
+
+  // --- Preference Fields (Optional) ---
+  firstName           String?
+  lastName            String?
+  companyName         String?
+  countryRegion       String?
+  streetAddress       String?
+  apartmentSuite      String?
+  townCity            String?
+  province            String?
+  postcode            String?
+  phone               String?
+  email               String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_checkout_preferences")
+}

@@ -1,44 +1,56 @@
+// prisma/schema/order.prisma
+
 model Order {
-    id String @id @default(uuid())
+  id String @id @default(uuid())
 
-    captivityBranch     String
-    methodOfCollection  String
-    salesRep            String?
-    referenceNumber     String?
-    firstName           String
-    lastName            String
-    companyName         String
-    countryRegion       String
-    streetAddress       String
-    apartmentSuite      String?
-    townCity            String
-    province            String
-    postcode            String
-    phone               String
-    email               String
-    orderNotes          String?
-    status              OrderStatus @default(PENDING)
-    totalAmount         Float
-    agreeTerms          Boolean     @default(false)
-    receiveEmailReviews Boolean?    @default(false)
-    createdAt           DateTime    @default(now())
-    updatedAt           DateTime    @updatedAt
-    orderItems          OrderItem[]
+  // --- Link to Payment Intent ---
+  paymentIntentId String? @unique
 
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  captivityBranch     String
+  methodOfCollection  String
+  salesRep            String?
+  referenceNumber     String?
+  firstName           String
+  lastName            String
+  companyName         String
+  countryRegion       String
+  streetAddress       String
+  apartmentSuite      String?
+  townCity            String
+  province            String
+  postcode            String
+  phone               String
+  email               String
+  orderNotes          String?
+  status              OrderStatus // Assuming OrderStatus enum is correctly found
+  totalAmount         Float
+  agreeTerms          Boolean
+  receiveEmailReviews Boolean?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  // --- End of original fields ---
 
-    @@map("orders")
+  orderItems          OrderItem[] // Relation field
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade) // Relation field
+
+  // --- Index for paymentIntentId ---
+  @@index([paymentIntentId])
+
+  @@map("orders")
 }
 
+// --- OrderItem Model (Ensure this is also complete) ---
 model OrderItem {
-    id          String    @id @default(uuid())
-    orderId     String
-    variationId String
-    quantity    Int
-    price       Float
-    order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-    variation   Variation @relation(fields: [variationId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
+  orderId     String
+  variationId String
+  quantity    Int
+  price       Float
 
-    @@map("order_items")
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variation   Variation @relation(fields: [variationId], references: [id], onDelete: Restrict) // Assuming Variation is found
+
+  @@map("order_items")
 }
