@@ -1,4 +1,4 @@
-// lib/stores/useCartStore.ts
+// app/(public)/productId/cart/_store/cart-store.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import React from "react";
@@ -31,7 +31,7 @@ export interface CartItemWithDetails {
 }
 
 // Define the cart store state
-interface CartState {
+export interface CartState {
   items: CartItemWithDetails[];
   itemCount: number;
   isLoading: boolean;

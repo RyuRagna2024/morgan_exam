@@ -1,4 +1,4 @@
-// lib/hooks/useCart.ts
+// app/(public)/productId/cart/_store/use-cart-store-hooks.tsx
 import { useEffect } from "react";
 import { useCartStore } from "./cart-store";
 
