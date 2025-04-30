@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-// --- Profile Info Update Schema (Keep as is) ---
+// --- Profile Info Update Schema ---
 export const profileUpdateSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
@@ -10,7 +10,7 @@ export const profileUpdateSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   email: z.string().email("Invalid email address"),
   phoneNumber: z.string().optional().nullable(),
-  country: z.string().min(1, "Country is required"), // User profile uses 'country'
+  country: z.string().min(1, "Country is required"),
   postcode: z.string().min(1, "Postcode is required"),
   streetAddress: z.string().optional().nullable(),
   suburb: z.string().optional().nullable(),
@@ -18,65 +18,74 @@ export const profileUpdateSchema = z.object({
 });
 export type ProfileUpdateFormValues = z.infer<typeof profileUpdateSchema>;
 
-// --- <<< RENAMED & UPDATED: Checkout PREFERENCE Schema >>> ---
-// Fields match UserCheckoutPreference model and are optional for saving preferences
+// --- Checkout PREFERENCE Schema ---
 export const checkoutPreferenceSchema = z.object({
-  firstName: z.string().min(1, "First name is required").nullable().optional(), // Allow clearing preference by submitting empty string (becomes null)
+  firstName: z.string().min(1, "First name is required").nullable().optional(),
   lastName: z.string().min(1, "Last name is required").nullable().optional(),
-  companyName: z.string().nullable().optional(), // Optional string
+  companyName: z.string().nullable().optional(),
   countryRegion: z
     .string()
     .min(1, "Country/Region is required")
     .nullable()
-    .optional(), // Naming matches Order/Preference model
+    .optional(),
   streetAddress: z
     .string()
     .min(1, "Street address is required")
     .nullable()
     .optional(),
-  apartmentSuite: z.string().nullable().optional(), // Optional string
+  apartmentSuite: z.string().nullable().optional(),
   townCity: z.string().min(1, "Town/City is required").nullable().optional(),
   province: z.string().min(1, "Province is required").nullable().optional(),
   postcode: z.string().min(1, "Postal code is required").nullable().optional(),
   phone: z.string().min(1, "Phone number is required").nullable().optional(),
   email: z.string().email("Invalid email address").nullable().optional(),
 });
-// <<< RENAMED TYPE >>>
 export type CheckoutPreferenceFormValues = z.infer<
   typeof checkoutPreferenceSchema
 >;
 
-// --- General Action Result Types (Keep as is) ---
+// --- General Action Result Types ---
 export interface UpdateActionResult {
   success?: string | null;
   error?: string | null;
 }
+// Exported because it's used by the action which is imported by the page
 export interface ProfileUpdateActionResult extends UpdateActionResult {
   updatedUser?: Partial<ProfileUpdateFormValues>;
 }
 
-// --- Password Change Schema and Types (Keep as is) ---
+// --- Password Change Schema ---
 export const passwordChangeSchema = z
   .object({
-    currentPassword: z.string().min(1, "Current password is required"),
+    currentPassword: z
+      .string()
+      .min(1, { message: "Current password is required" }),
     newPassword: z
       .string()
-      .min(8, "New password must be at least 8 characters")
-      .max(255)
-      .regex(/[A-Z]/)
-      .regex(/[a-z]/)
-      .regex(/[0-9]/)
-      .regex(/[^A-Za-z0-9]/),
-    confirmNewPassword: z.string(),
+      .min(8, { message: "New password must be at least 8 characters" })
+      .max(255, { message: "Password cannot exceed 255 characters" })
+      .regex(/[A-Z]/, { message: "Password requires an uppercase letter" })
+      .regex(/[a-z]/, { message: "Password requires a lowercase letter" })
+      .regex(/[0-9]/, { message: "Password requires a number" })
+      .regex(/[^A-Za-z0-9]/, {
+        message: "Password requires a special character",
+      }),
+    confirmNewPassword: z
+      .string()
+      .min(1, { message: "Please confirm your new password" }),
   })
   .refine((data) => data.newPassword === data.confirmNewPassword, {
     message: "New passwords do not match",
     path: ["confirmNewPassword"],
   });
+
 export type PasswordChangeFormValues = z.infer<typeof passwordChangeSchema>;
+
 export interface PasswordChangeResult {
   success: boolean;
   message?: string;
   error?: string;
-  fieldErrors?: Partial<Record<keyof PasswordChangeFormValues, string>>;
+  fieldErrors?: Partial<
+    Record<"currentPassword" | "newPassword" | "confirmNewPassword", string>
+  >;
 }

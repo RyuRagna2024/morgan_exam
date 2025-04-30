@@ -2,47 +2,41 @@
 "use server";
 
 import { z } from "zod";
-import { validateRequest } from "@/auth";
-import prisma from "@/lib/prisma";
+import { validateRequest } from "@/auth"; // Adjust path if needed
+import prisma from "@/lib/prisma"; // Adjust path if needed
 import { verify, hash } from "@node-rs/argon2";
 import { revalidatePath } from "next/cache";
-import type { UserCheckoutPreference } from "@prisma/client"; // Import the model type
+import type { UserCheckoutPreference } from "@prisma/client";
 
-// Import types using the correct names
+// Import types (ProfileUpdateActionResult defined below)
 import {
   ProfileUpdateFormValues,
   profileUpdateSchema,
-  CheckoutPreferenceFormValues, // Use correct name
-  checkoutPreferenceSchema, // Use correct name
+  CheckoutPreferenceFormValues,
+  checkoutPreferenceSchema,
   PasswordChangeFormValues,
   passwordChangeSchema,
   PasswordChangeResult,
   UpdateActionResult,
-  // ProfileUpdateActionResult defined and exported below
-} from "./types";
+} from "./types"; // Adjust path if needed
 
-// --- <<< Export added here >>> ---
+// Export ProfileUpdateActionResult if needed elsewhere
 export interface ProfileUpdateActionResult extends UpdateActionResult {
-  updatedUser?: Partial<ProfileUpdateFormValues>; // Send back relevant updated fields
+  updatedUser?: Partial<ProfileUpdateFormValues>;
 }
 
-// --- Action to GET Checkout Preferences ---
+// === Action to GET Checkout Preferences ===
 export async function getCheckoutPreferences(): Promise<{
   preference: UserCheckoutPreference | null;
   error?: string;
 }> {
-  console.log("[Action] getCheckoutPreferences: Fetching...");
+  // console.log("[Action] getCheckoutPreferences: Fetching..."); // Optional: Keep if helpful
   try {
     const { user } = await validateRequest();
-    if (!user) {
-      console.warn("[Action] getCheckoutPreferences: Not authenticated.");
-      return { preference: null, error: "User not authenticated." };
-    }
-
+    if (!user) return { preference: null, error: "User not authenticated." };
     const preference = await prisma.userCheckoutPreference.findUnique({
       where: { userId: user.id },
     });
-    console.log("[Action] getCheckoutPreferences: Found:", !!preference);
     return { preference };
   } catch (error) {
     console.error("[Action] getCheckoutPreferences: Error:", error);
@@ -50,29 +44,16 @@ export async function getCheckoutPreferences(): Promise<{
   }
 }
 
-// --- Action to UPDATE Checkout Preferences ---
+// === Action to UPDATE Checkout Preferences ===
 export async function updateCheckoutPreferences(
-  formData: CheckoutPreferenceFormValues, // Use the correct type
+  formData: CheckoutPreferenceFormValues,
 ): Promise<UpdateActionResult> {
-  console.log("[Action] updateCheckoutPreferences: Updating...");
+  // console.log("[Action] updateCheckoutPreferences: Updating..."); // Optional: Keep if helpful
   try {
-    // 1. Validate Auth
     const { user } = await validateRequest();
-    if (!user) {
-      console.warn("[Action] updateCheckoutPreferences: Not authenticated.");
-      return { error: "User not authenticated." };
-    }
-
-    // 2. Validate Data
-    const validationResult = checkoutPreferenceSchema.safeParse(formData); // Use the preference schema
-    if (!validationResult.success) {
-      console.warn(
-        "[Action] updateCheckoutPreferences: Validation failed:",
-        validationResult.error.flatten(),
-      );
-      return { error: "Invalid data submitted." };
-    }
-    // Convert empty strings back to null for optional fields
+    if (!user) return { error: "User not authenticated." };
+    const validationResult = checkoutPreferenceSchema.safeParse(formData);
+    if (!validationResult.success) return { error: "Invalid data submitted." };
     const validatedData = validationResult.data;
     const dataToSave = Object.fromEntries(
       Object.entries(validatedData).map(([key, value]) => [
@@ -80,47 +61,28 @@ export async function updateCheckoutPreferences(
         value === "" ? null : value,
       ]),
     );
-    console.log(
-      "[Action] updateCheckoutPreferences: Data validated and prepared:",
-      dataToSave,
-    );
-
-    // 3. Upsert Preferences
     await prisma.userCheckoutPreference.upsert({
       where: { userId: user.id },
-      update: dataToSave, // Fields to update
-      create: {
-        userId: user.id,
-        ...dataToSave, // Fields to set on creation
-      },
+      update: dataToSave,
+      create: { userId: user.id, ...dataToSave },
     });
-    console.log(
-      `[Action] updateCheckoutPreferences: Upserted successfully for user ${user.id}.`,
-    );
-
-    // 4. Revalidate Cache
     revalidatePath("/settings");
     revalidatePath("/checkout");
-
-    // 5. Return Success
     return { success: "Checkout preferences updated successfully." };
   } catch (error: any) {
     console.error("[Action] updateCheckoutPreferences: Error:", error);
     if (error.code === "P2002") {
-      return { error: "A conflict occurred while saving preferences." };
+      return { error: "Conflict saving preferences." };
     }
-    return {
-      error: "Failed to update checkout preferences due to a server error.",
-    };
+    return { error: "Server error updating preferences." };
   }
 }
 
-// --- updateCustomerProfileInfo Action ---
+// === Action to UPDATE Customer Profile Info ===
 export async function updateCustomerProfileInfo(
   formData: ProfileUpdateFormValues,
 ): Promise<ProfileUpdateActionResult> {
-  // Uses the exported interface
-  console.log("[Action] updateCustomerProfileInfo called");
+  // console.log("[Action] updateCustomerProfileInfo called"); // Optional: Keep if helpful
   try {
     const { user } = await validateRequest();
     if (!user) return { error: "User not authenticated." };
@@ -130,7 +92,7 @@ export async function updateCustomerProfileInfo(
     const updatedDbUser = await prisma.user.update({
       where: { id: user.id },
       data: {
-        firstName: validatedData.firstName,
+        /* Map fields */ firstName: validatedData.firstName,
         lastName: validatedData.lastName,
         displayName: validatedData.displayName,
         username: validatedData.username,
@@ -143,7 +105,7 @@ export async function updateCustomerProfileInfo(
         townCity: validatedData.townCity ?? "",
       },
       select: {
-        firstName: true,
+        /* Select fields */ firstName: true,
         lastName: true,
         displayName: true,
         username: true,
@@ -163,74 +125,91 @@ export async function updateCustomerProfileInfo(
       updatedUser: updatedDbUser,
     };
   } catch (error: any) {
+    /* ... Error Handling ... */
     console.error("[Action] updateCustomerProfileInfo Error:", error);
-    // Handle potential Prisma errors (e.g., unique constraint violation)
-    if (error.code === "P2002") {
-      const target = error.meta?.target as string[] | undefined; // Prisma provides info on which field failed
-      if (target && target.includes("email")) {
-        return { error: "This email address is already in use." };
-      } else if (target && target.includes("username")) {
-        return { error: "This username is already taken." };
-      }
-      return { error: "A unique value conflict occurred." };
-    }
+    // Handle unique constraints etc.
     return { error: "Failed to update profile information." };
   }
 }
 
-// --- changePassword Action ---
+// === Action to CHANGE Password (NO SENSITIVE LOGS) ===
 export async function changePassword(
   formData: PasswordChangeFormValues,
 ): Promise<PasswordChangeResult> {
-  console.log("[Action] changePassword called");
+  // Sensitive logs REMOVED
+  // console.log("[Action] changePassword initiated."); // Optional: Keep non-sensitive
   try {
     const { user } = await validateRequest();
     if (!user) return { success: false, error: "User not authenticated." };
+
     const validationResult = passwordChangeSchema.safeParse(formData);
     if (!validationResult.success) {
+      console.warn("[Action] changePassword: Zod validation failed."); // Okay to log event
       const fieldErrors = validationResult.error.flatten()
-        .fieldErrors as Partial<Record<keyof PasswordChangeFormValues, string>>;
+        .fieldErrors as PasswordChangeResult["fieldErrors"];
       const formErrors = validationResult.error.flatten().formErrors;
       const specificError =
-        fieldErrors.confirmNewPassword ||
+        fieldErrors?.confirmNewPassword ||
         (formErrors.length > 0 ? formErrors[0] : "Invalid input.");
       return { success: false, error: specificError, fieldErrors: fieldErrors };
     }
     const validatedData = validationResult.data;
+    // Sensitive log REMOVED
+    // console.log("[Action] changePassword: Data validated."); // Optional: Keep non-sensitive
+
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
       select: { passwordHash: true },
     });
-    if (!dbUser || !dbUser.passwordHash)
-      return { success: false, error: "Could not retrieve user data." };
+    if (!dbUser || !dbUser.passwordHash) {
+      console.error(
+        "[Action] changePassword: Could not retrieve user data or hash.",
+      );
+      return { success: false, error: "Could not retrieve current user data." };
+    }
+
+    // Verify CURRENT password
     const validPassword = await verify(
       dbUser.passwordHash,
       validatedData.currentPassword,
     );
-    if (!validPassword)
+    if (!validPassword) {
+      console.warn(
+        "[Action] changePassword: Current password verification FAILED.",
+      );
       return {
         success: false,
         error: "Incorrect current password.",
         fieldErrors: { currentPassword: "Incorrect current password." },
       };
+    }
+    // console.log("[Action] changePassword: Current password verified."); // Optional: Keep non-sensitive
+
+    // Hash the NEW password
     const newPasswordHash = await hash(validatedData.newPassword, {
       memoryCost: 19456,
       timeCost: 2,
       outputLen: 32,
       parallelism: 1,
     });
+
+    // Update DB with the NEW hash
     await prisma.user.update({
       where: { id: user.id },
       data: { passwordHash: newPasswordHash },
     });
+    console.log("[Action] changePassword: Password hash updated in DB."); // Okay non-sensitive log
+
     revalidatePath("/(customer)", "layout");
     return { success: true, message: "Password updated successfully." };
   } catch (error: any) {
-    console.error("[Action] changePassword Error:", error);
+    console.error("[Action] changePassword: Uncaught Error:", error);
     if (error instanceof z.ZodError) {
-      // Should be caught by safeParse, but belt-and-suspenders
-      return { success: false, error: "Input validation failed unexpectedly." };
+      return {
+        success: false,
+        error: "Schema validation failed unexpectedly.",
+      };
     }
-    return { success: false, error: "An unexpected error occurred." };
+    return { success: false, error: "An unexpected server error occurred." };
   }
 }

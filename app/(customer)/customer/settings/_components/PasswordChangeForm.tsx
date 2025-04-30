@@ -4,15 +4,16 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { toast } from "react-hot-toast";
+import { toast } from "react-hot-toast"; // Or use sonner
 
+// Adjust path if needed
 import {
   PasswordChangeFormValues,
   passwordChangeSchema,
-} from "../_actions/types"; // Adjust path if needed
-import { changePassword } from "../_actions/actions"; // Adjust path if needed
+} from "../_actions/types";
+import { changePassword } from "../_actions/actions";
 
+// Adjust paths if needed
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -38,6 +39,7 @@ export default function PasswordChangeForm() {
 
   const form = useForm<PasswordChangeFormValues>({
     resolver: zodResolver(passwordChangeSchema),
+    mode: "onBlur",
     defaultValues: {
       currentPassword: "",
       newPassword: "",
@@ -46,37 +48,36 @@ export default function PasswordChangeForm() {
   });
 
   const onSubmit = async (data: PasswordChangeFormValues) => {
+    // Sensitive logs REMOVED
+    // console.log("[Form] Submitting password change..."); // Optional: Keep non-sensitive
     setIsSubmitting(true);
-    form.clearErrors(); // Clear previous errors
+    form.clearErrors();
 
     try {
       const result = await changePassword(data);
+      // Sensitive logs REMOVED
+      // console.log("[Form] Server action result:", result);
 
       if (result.success) {
-        toast.success(result.message || "Password updated!");
-        form.reset(); // Clear form fields on success
+        toast.success(result.message || "Password updated successfully!");
+        form.reset();
       } else {
-        // Display general error
         toast.error(result.error || "Failed to update password.");
-
-        // Set specific field errors if provided by the server action
-        if (result.fieldErrors?.currentPassword) {
-          form.setError("currentPassword", {
-            type: "server",
-            message: result.fieldErrors.currentPassword,
+        if (result.fieldErrors) {
+          (
+            Object.keys(result.fieldErrors) as Array<
+              keyof PasswordChangeFormValues
+            >
+          ).forEach((fieldName) => {
+            const message = result.fieldErrors![fieldName];
+            if (message) {
+              form.setError(fieldName, { type: "server", message: message });
+            }
           });
         }
-        if (result.fieldErrors?.confirmNewPassword) {
-          form.setError("confirmNewPassword", {
-            type: "server",
-            message: result.fieldErrors.confirmNewPassword,
-          });
-        }
-        // Handle other potential field errors if needed
       }
     } catch (error) {
-      // Catch unexpected client-side errors during submission
-      console.error("Client error changing password:", error);
+      console.error("[Form] Client error submitting password change:", error);
       toast.error("An unexpected client error occurred.");
     } finally {
       setIsSubmitting(false);
@@ -92,8 +93,9 @@ export default function PasswordChangeForm() {
         </CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
           <CardContent className="space-y-4">
+            {/* Current Password Field */}
             <FormField
               control={form.control}
               name="currentPassword"
@@ -104,14 +106,17 @@ export default function PasswordChangeForm() {
                     <Input
                       type="password"
                       placeholder="Enter your current password"
+                      autoComplete="off" // Keep off
                       {...field}
                       disabled={isSubmitting}
+                      aria-required="true"
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {/* New Password Field */}
             <FormField
               control={form.control}
               name="newPassword"
@@ -121,15 +126,18 @@ export default function PasswordChangeForm() {
                   <FormControl>
                     <Input
                       type="password"
-                      placeholder="Enter your new password (min. 8 characters)"
+                      placeholder="Enter new password (min. 8 chars, complexity required)"
+                      autoComplete="new-password"
                       {...field}
                       disabled={isSubmitting}
+                      aria-required="true"
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {/* Confirm New Password Field */}
             <FormField
               control={form.control}
               name="confirmNewPassword"
@@ -140,8 +148,10 @@ export default function PasswordChangeForm() {
                     <Input
                       type="password"
                       placeholder="Confirm your new password"
+                      autoComplete="new-password"
                       {...field}
                       disabled={isSubmitting}
+                      aria-required="true"
                     />
                   </FormControl>
                   <FormMessage />
@@ -150,7 +160,7 @@ export default function PasswordChangeForm() {
             />
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} className="ml-auto">
               {isSubmitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
