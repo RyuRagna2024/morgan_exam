@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-// Import necessary types, including Path
+// Ensure all necessary RHF types are imported
 import {
   Control,
   FieldValues,
@@ -10,8 +10,9 @@ import {
   UseFieldArrayAppend,
   UseFieldArrayRemove,
   FieldPath,
+  PathValue,
 } from "react-hook-form";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react"; // <<< Import React and useState
 import {
   FormControl,
   FormDescription,
@@ -29,7 +30,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Plus, X } from "lucide-react";
-import { Variation } from "@/app/(admin)/admin/(sidebar)/(products)/products/create/types"; // Adjust path
+import { Variation } from "@/app/(admin)/admin/(sidebar)/(products)/products/create/types"; // Adjust path as necessary
 // Import specific input types from validations file
 import {
   CreateProductInput,
@@ -48,7 +49,7 @@ type VariationFormData = {
   quantity: number;
   price: number;
   variationImage?: File | null | undefined;
-  id?: string; // Optional ID for existing variations
+  id?: string;
 };
 // Define keys of VariationFormData that are strings and can be used as field names
 type VariationFormFieldName = Extract<keyof VariationFormData, string>;
@@ -57,25 +58,25 @@ type VariationFormFieldName = Extract<keyof VariationFormData, string>;
 interface VariationFormItemProps {
   field: FieldArrayWithId<ProductFormInput, "variations", "id">;
   index: number;
-  form: UseFormReturn<ProductFormInput>;
+  form: UseFormReturn<ProductFormInput>; // Use Union Type
   remove: UseFieldArrayRemove;
   formatCurrency: (value: string) => string;
-  existingImageUrl?: string;
-  newImageFile?: File | null;
+  existingImageUrl?: string; // Optional for edit mode
+  newImageFile?: File | null; // Optional for edit mode preview
   handleVariationImageChange: (index: number, files: FileList | null) => void;
   allowedImageTypes: readonly string[];
 }
 
 // --- Helper Component for Individual Variation Form ---
 function VariationFormItem({
-  field,
+  field, // field object from useFieldArray
   index,
   form,
   remove,
   formatCurrency,
   existingImageUrl,
-  newImageFile,
-  handleVariationImageChange,
+  newImageFile, // The NEW file staged for upload (for preview)
+  handleVariationImageChange, // The function to call when file input changes
   allowedImageTypes,
 }: VariationFormItemProps) {
   const [newPreviewUrl, setNewPreviewUrl] = useState<string | null>(null);
@@ -87,19 +88,19 @@ function VariationFormItem({
       objectUrl = URL.createObjectURL(newImageFile);
       setNewPreviewUrl(objectUrl);
     } else {
-      setNewPreviewUrl(null);
+      setNewPreviewUrl(null); // Clear preview if file removed/deselected
     }
+    // Cleanup function to revoke URL when component unmounts or file changes
     return () => {
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [newImageFile]);
+  }, [newImageFile]); // Depend only on the specific new image file for this item
 
   const fileAcceptString = allowedImageTypes.join(",");
 
-  // --- CORRECTED Helper to build field path string ---
-  // Ensures fieldName is a valid string key of VariationFormData
+  // Helper to build field path string safely
   const getFieldName = (
     fieldName: VariationFormFieldName,
   ): `variations.${number}.${VariationFormFieldName}` => {
@@ -108,13 +109,13 @@ function VariationFormItem({
 
   return (
     <AccordionItem
-      key={field.id}
-      value={`variation-${index}`}
+      key={field.id} // Use stable ID from useFieldArray
+      value={`variation-${index}`} // Use index for Accordion value
       className="border rounded-md mb-4 last:mb-0 bg-card"
     >
       <div className="flex justify-between items-center px-4">
         <AccordionTrigger className="flex-grow py-3 hover:no-underline">
-          {/* Use helper, cast to any for watch if Path struggles */}
+          {/* Use helper with 'as any' if Path type causes issues */}
           <span>
             {" "}
             {form.watch(getFieldName("name") as any) ||
@@ -139,7 +140,7 @@ function VariationFormItem({
       </div>
       <AccordionContent className="px-4 pb-4 border-t">
         <div className="grid grid-cols-2 gap-4 pt-4">
-          {/* Use helper function for field names */}
+          {/* Variation Fields using helper */}
           <FormField
             control={form.control as Control<any>}
             name={getFieldName("name")}
@@ -265,16 +266,39 @@ function VariationFormItem({
             <FormLabel>
               Variation Image {existingImageUrl ? "(Optional Replacement)" : ""}
             </FormLabel>
-            {/* Previews... */}
+            {/* Show current image if editing and one exists and no new preview */}
             {existingImageUrl && !newPreviewUrl && (
-              <div className="mt-1 mb-2">{/*...*/}</div>
+              <div className="mt-1 mb-2">
+                <p className="text-xs text-muted-foreground mb-1">Current:</p>
+                <Image
+                  src={existingImageUrl}
+                  alt={`Current variation ${index + 1}`}
+                  width={64}
+                  height={64}
+                  className="rounded border bg-muted object-contain"
+                />
+              </div>
             )}
-            {newPreviewUrl && <div className="mt-1 mb-2">{/*...*/}</div>}
+            {/* Show preview of NEWLY selected file */}
+            {newPreviewUrl && (
+              <div className="mt-1 mb-2">
+                <p className="text-xs text-muted-foreground mb-1">
+                  New Preview:
+                </p>
+                <Image
+                  src={newPreviewUrl}
+                  alt={`New variation ${index + 1} preview`}
+                  width={64}
+                  height={64}
+                  className="rounded border bg-muted object-contain"
+                />
+              </div>
+            )}
             <FormControl>
               <Input
                 type="file"
                 accept={fileAcceptString}
-                // Pass index and files to parent handler
+                // Call the handler passed from parent when file selection changes
                 onChange={(e) =>
                   handleVariationImageChange(index, e.target.files)
                 }
@@ -286,7 +310,7 @@ function VariationFormItem({
                 ? "Upload new to replace (max 6MB)."
                 : "Upload image (max 6MB)."}
             </FormDescription>
-            {/* <FormMessage /> */}
+            {/* <FormMessage /> If needed, requires manual error setting from parent */}
           </FormItem>
         </div>
       </AccordionContent>
@@ -295,15 +319,17 @@ function VariationFormItem({
 }
 
 // --- Props Interface for the Main Tab Component ---
+// Uses the specific ProductFormInput union type
 interface ProductVariationsTabProps {
   form: UseFormReturn<ProductFormInput>;
   fields: FieldArrayWithId<ProductFormInput, "variations", "id">[];
   append: UseFieldArrayAppend<ProductFormInput, "variations">;
   remove: UseFieldArrayRemove;
   formatCurrency: (value: string) => string;
+  // Optional props passed down from EditProductForm
   existingVariations?: Variation[];
-  variationImages?: { [key: number]: File | null };
-  handleVariationImageChange: (index: number, files: FileList | null) => void;
+  variationImages?: { [key: number]: File | null }; // State map of NEW images
+  handleVariationImageChange: (index: number, files: FileList | null) => void; // Handler for NEW images
   allowedImageTypes: readonly string[];
 }
 
@@ -315,8 +341,8 @@ export function ProductVariationsTab({
   remove,
   formatCurrency,
   existingVariations,
-  variationImages,
-  handleVariationImageChange,
+  variationImages, // Map of NEW files being staged
+  handleVariationImageChange, // Function to update the NEW files map
   allowedImageTypes,
 }: ProductVariationsTabProps) {
   return (
@@ -329,7 +355,8 @@ export function ProductVariationsTab({
           size="sm"
           disabled={form.formState.isSubmitting}
           onClick={() => {
-            const defaultVariation: VariationFormData = {
+            // Define the default structure for a new variation item
+            const defaultVariation = {
               name: "",
               color: "",
               size: "",
@@ -337,7 +364,8 @@ export function ProductVariationsTab({
               quantity: 0,
               price: 0.0,
             };
-            append(defaultVariation as any); // Use 'as any' cast
+            // Append this structure to the form's field array
+            append(defaultVariation as any); // Cast might be needed for complex types
           }}
         >
           <Plus className="h-4 w-4 mr-2" /> Add Variation
@@ -350,29 +378,31 @@ export function ProductVariationsTab({
         defaultValue={fields.map((_, index) => `variation-${index}`)}
       >
         {fields.map((field, index) => (
-          // Pass props down to the item component
+          // Render the item component for each field in the array
           <VariationFormItem
-            key={field.id}
-            field={field}
-            index={index}
-            form={form}
-            remove={remove}
+            key={field.id} // Unique key from useFieldArray
+            field={field} // Pass the field object
+            index={index} // Pass the index
+            form={form} // Pass the main form instance
+            remove={remove} // Pass the remove function
             formatCurrency={formatCurrency}
-            // Find existing URL using the ID from the form state if available
+            // Find existing variation data based on ID (present in edit mode)
             existingImageUrl={
               existingVariations?.find(
                 (v) =>
                   v.id === form.getValues(`variations.${index}` as any)?.id,
               )?.imageUrl
             }
+            // Pass the specific NEW file (if any) staged for this index
             newImageFile={variationImages?.[index]}
+            // Pass the handler function for the file input
             handleVariationImageChange={handleVariationImageChange}
             allowedImageTypes={allowedImageTypes}
           />
         ))}
       </Accordion>
 
-      {/* No variations message */}
+      {/* Message shown when there are no variations */}
       {fields.length === 0 && (
         <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-md">
           <p className="text-muted-foreground mb-4">No variations added yet.</p>
@@ -381,7 +411,7 @@ export function ProductVariationsTab({
             variant="outline"
             disabled={form.formState.isSubmitting}
             onClick={() => {
-              const defaultVariation: VariationFormData = {
+              const defaultVariation = {
                 name: "",
                 color: "",
                 size: "",
@@ -389,7 +419,7 @@ export function ProductVariationsTab({
                 quantity: 0,
                 price: 0.0,
               };
-              append(defaultVariation as any); // Use 'as any' cast
+              append(defaultVariation as any);
             }}
           >
             <Plus className="h-4 w-4 mr-2" /> Add Your First Variation

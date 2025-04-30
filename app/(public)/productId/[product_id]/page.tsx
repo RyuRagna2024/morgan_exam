@@ -1,87 +1,132 @@
 // app/(public)/productId/[product_id]/page.tsx
+
 import React from "react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import ProductDetails from "./_components/ProductDetails";
-import { addToCart } from "../cart/_cart-actions/add-to-cart";
-import {
-  getProductById,
-  getRelatedProducts,
-} from "../../(group-products)/_components/(filterside)/product-fetch";
-import ProductGrid from "../../(group-products)/(unviresal_comp)/UnifiedProductGrid";
+import { addToCart } from "../cart/_cart-actions/add-to-cart"; // Adjust path if needed
+import { getProductById } from "../../(group-products)/_components/(filterside)/product-fetch"; // Fetch main product directly
+import ProductGrid from "../../(group-products)/(unviresal_comp)/UnifiedProductGrid"; // Assuming this component exists
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+// --- REMOVED ArrowLeft - now inside ProductDetails ---
+// import { ArrowLeft } from "lucide-react";
+// --- REMOVED Tooltip imports - now inside ProductDetails ---
+// import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ProductWithVariations } from "../../(group-products)/_components/(filterside)/types";
+import { ProductWithVariations } from "../../(group-products)/_components/(filterside)/types"; // Adjust path if needed
 
-// Interface for server component props including params
 interface ProductDetailsPageProps {
   params: {
-    // Ensure this matches your actual folder name: '[product_id]' or '[productId]'
     product_id?: string;
     productId?: string;
   };
 }
 
+// Optional: Force dynamic rendering
+// export const dynamic = 'force-dynamic';
+
 export default async function ProductDetailsPage({
   params,
 }: ProductDetailsPageProps) {
-  // --- Get Product ID ---
   const productId = params.product_id || params.productId;
 
+  if (!productId) {
+    console.error("Product ID missing in page parameters.");
+    notFound();
+  }
+
   // --- Fetch Data Server-Side ---
-  let relatedProducts: ProductWithVariations[] = [];
-  let relatedFetchError = null;
+  let featuredProducts: ProductWithVariations[] = [];
+  let featuredFetchError = null;
   let mainProductFetchError = null;
-  let backUrl = "/all-collections"; // Default back URL
-  let productCategoryName = "Products"; // Default category name
+  let backUrl = "/all-collections"; // Default
+  let productCategoryName = "Products"; // Default
+  let mainProductName = "Product"; // Default name
+  let mainProductResultSuccess = false; // Explicit success flag
 
-  if (productId) {
-    // Fetch main product for category info
-    const mainProductResult = await getProductById(productId);
-    if (mainProductResult.success && mainProductResult.product) {
-      if (
-        mainProductResult.product.category &&
-        mainProductResult.product.category.length > 0
-      ) {
-        const primaryCategory =
-          mainProductResult.product.category[0].toLowerCase();
-        if (["headwear", "apparel"].includes(primaryCategory)) {
-          backUrl = `/${primaryCategory}`;
-          productCategoryName =
-            primaryCategory.charAt(0).toUpperCase() + primaryCategory.slice(1);
-        } else if (primaryCategory === "all-collections") {
-          backUrl = "/all-collections";
-          productCategoryName = "All Collections";
-        }
-        // Other categories default to /all-collections
+  // --- Fetch main product first ---
+  const mainProductResult = await getProductById(productId);
+  if (mainProductResult.success && mainProductResult.product) {
+    mainProductResultSuccess = true; // Set flag on success
+    mainProductName = mainProductResult.product.productName;
+    // Determine back URL based on category
+    if (mainProductResult.product.category?.length > 0) {
+      const primaryCategory =
+        mainProductResult.product.category[0].toLowerCase();
+      if (["headwear", "apparel"].includes(primaryCategory)) {
+        backUrl = `/${primaryCategory}`;
+        productCategoryName =
+          primaryCategory.charAt(0).toUpperCase() + primaryCategory.slice(1);
+      } else {
+        // Default other categories to All Collections
+        backUrl = "/all-collections";
+        productCategoryName = "All Collections";
       }
-    } else {
-      console.error("Failed to fetch main product:", mainProductResult.error);
-      mainProductFetchError =
-        mainProductResult.error || "Could not load product details.";
-    }
-
-    // Fetch related products
-    const relatedResult = await getRelatedProducts(productId, 4); // Fetch 4 related products
-    if (relatedResult.success && relatedResult.products) {
-      relatedProducts = relatedResult.products as ProductWithVariations[];
-    } else {
-      console.error("Failed to fetch related products:", relatedResult.error);
-      relatedFetchError =
-        relatedResult.error || "Could not load related products.";
     }
   } else {
-    console.error("Product ID not found in page parameters.");
-    mainProductFetchError = "Product ID is missing.";
+    mainProductFetchError =
+      mainProductResult.error || "Could not load product details.";
+    console.error("Main product fetch failed:", mainProductFetchError);
+  }
+
+  // --- Fetch FEATURED products via API Route ---
+  if (productId) {
+    try {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.VERCEL_URL ||
+        "http://localhost:3000";
+      const absoluteUrl = baseUrl.startsWith("http")
+        ? baseUrl
+        : `https://${baseUrl}`;
+      const apiUrl = new URL(`/api/featured-products`, absoluteUrl);
+      apiUrl.searchParams.set("limit", "5");
+      apiUrl.searchParams.set("exclude", productId);
+
+      console.log(`Fetching featured products from: ${apiUrl.toString()}`);
+      const res = await fetch(apiUrl.toString(), { cache: "no-store" });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`API Error ${res.status}: ${errorText}`);
+        throw new Error(`API responded with status ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.success && data.products) {
+        featuredProducts = data.products as ProductWithVariations[];
+      } else {
+        console.error("API Error Response:", data);
+        throw new Error(
+          data.error || "API returned unsuccessful result or no products",
+        );
+      }
+    } catch (error) {
+      console.error("Failed to fetch featured products via API:", error);
+      featuredFetchError =
+        error instanceof Error
+          ? error.message
+          : "Could not load featured products.";
+    }
   }
   // --- End Data Fetching ---
 
+  // --- Handle Main Product Fetch Failure ---
+  if (!mainProductResultSuccess) {
+    return (
+      <div
+        className={cn(
+          "container mx-auto px-4 py-8 sm:py-10 mt-6",
+          "bg-background text-foreground",
+        )}
+      >
+        <div className="text-center text-destructive p-4 border border-destructive/50 bg-destructive/10 rounded-md mt-20">
+          {mainProductFetchError || "Product could not be loaded."}
+        </div>
+      </div>
+    );
+  }
+
+  // --- Main Render ---
   return (
     <div
       className={cn(
@@ -89,57 +134,29 @@ export default async function ProductDetailsPage({
         "bg-background text-foreground",
       )}
     >
-      {/* Back Button & Page Header */}
-      <div className="relative mb-6 md:mb-8">
-        <div className="absolute top-0 right-0 z-10">
-          {" "}
-          {/* Added z-index */}
-          <TooltipProvider delayDuration={100}>
-            <Tooltip>
-              {/* --- Inverted Nesting: Link wraps TooltipTrigger --- */}
-              <Link href={backUrl} passHref legacyBehavior>
-                <TooltipTrigger asChild>
-                  {/* Use an actual button or anchor for accessibility */}
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label={`Back to ${productCategoryName}`}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-              </Link>
-              {/* --- End Inverted Nesting --- */}
-              <TooltipContent>
-                {" "}
-                <p>Back to {productCategoryName}</p>{" "}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+      {/* --- Page Header (Title Only) --- */}
+      <div className="mb-6 md:mb-8">
+        {" "}
+        {/* Removed relative as button is inside details now */}
         <h1 className="text-3xl md:text-4xl font-bold text-center tracking-tight pt-12 md:pt-0">
           {" "}
-          {/* Adjusted padding */}
+          {/* Padding might be adjustable now */}
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-foreground to-muted-foreground dark:from-gray-200 dark:to-gray-500">
-            Product Details
+            {mainProductName} Details
           </span>
         </h1>
+        {/* --- BACK BUTTON REMOVED FROM HERE --- */}
       </div>
+      {/* --- END Page Header --- */}
 
       {/* Product Details Component Wrapper */}
       <div className="mt-6 mb-8 md:mb-10">
-        {mainProductFetchError ? (
-          <div className="text-center text-destructive p-4 border border-destructive/50 bg-destructive/10 rounded-md">
-            {mainProductFetchError}
-          </div>
-        ) : productId ? (
-          <ProductDetails addToCartAction={addToCart} />
-        ) : (
-          // Handle case where ID was missing entirely from params
-          <div className="text-center text-destructive p-4 border border-destructive/50 bg-destructive/10 rounded-md">
-            Product not found. Invalid URL.
-          </div>
-        )}
+        {/* Pass necessary props for the internal back button */}
+        <ProductDetails
+          addToCartAction={addToCart}
+          backUrl={backUrl}
+          productCategoryName={productCategoryName}
+        />
       </div>
 
       {/* Featured Products Section */}
@@ -147,32 +164,31 @@ export default async function ProductDetailsPage({
         <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8 text-foreground">
           Featured Products
         </h2>
-        {/* Show related products error if it occurred */}
-        {relatedFetchError &&
-          !mainProductFetchError && ( // Only show if main product loaded ok
-            <p className="text-center text-destructive mb-8">
-              {relatedFetchError}
-            </p>
-          )}
-        {relatedProducts.length > 0 ? (
+        {featuredFetchError && (
+          <p className="text-center text-destructive mb-8">
+            {" "}
+            Could not load featured products: {featuredFetchError}{" "}
+          </p>
+        )}
+        {!featuredFetchError && featuredProducts.length > 0 ? (
           <>
-            <ProductGrid products={relatedProducts} enableLogging={false} />
+            <ProductGrid products={featuredProducts} enableLogging={false} />
             <div className="text-center mt-10">
+              {" "}
               <Link href="/all-collections">
                 {" "}
                 <Button variant="outline" size="lg">
-                  See More
+                  {" "}
+                  See More{" "}
                 </Button>{" "}
-              </Link>
+              </Link>{" "}
             </div>
           </>
         ) : (
-          // Show only if no fetch errors occurred for related products
-          !relatedFetchError &&
-          !mainProductFetchError &&
-          productId && (
+          !featuredFetchError && (
             <p className="text-center text-muted-foreground">
-              No related products found.
+              {" "}
+              No featured products found.{" "}
             </p>
           )
         )}

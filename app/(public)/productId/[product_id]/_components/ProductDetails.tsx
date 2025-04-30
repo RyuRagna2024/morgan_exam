@@ -1,17 +1,25 @@
+// app/(public)/productId/[product_id]/_components/ProductDetails.tsx
 "use client";
 
 import { useParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link"; // <<< Import Link
 import { toast } from "sonner";
-import { useProductDetails } from "../useProductDetails";
+import { useProductDetails } from "../useProductDetails"; // Adjust path if needed
 import ProductImage from "./ProductImage";
 import VariationSelector from "./VariationSelector";
-import ImageThumbnailSelector from "./ImageThumbnailSelector"; // Import gallery component
+import ImageThumbnailSelector from "./ImageThumbnailSelector";
 import ProductStatus from "./ProductStatus";
 import WishlistButton from "./WishlistButton";
 import { useTierDiscount } from "@/app/(public)/(group-products)/_components/(filterside)/tier-util";
 import { Button } from "@/components/ui/button";
-import { Loader2, Star } from "lucide-react";
+import { Loader2, Star, X } from "lucide-react"; // <<< Import X icon
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"; // <<< Import Tooltip components
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,20 +51,29 @@ interface AddToCartResult {
   message: string;
   cartItemCount?: number;
 }
+// --- ADD PROPS for back button ---
 interface ProductDetailsProps {
   addToCartAction: (formData: {
     variationId: string;
     quantity: number;
   }) => Promise<AddToCartResult>;
+  backUrl: string; // URL for the back button
+  productCategoryName: string; // Name for the tooltip
 }
+// --- END ADD PROPS ---
 
+// --- Update function signature ---
 export default function ProductDetails({
   addToCartAction,
+  backUrl,
+  productCategoryName,
 }: ProductDetailsProps) {
+  // --- END Update function signature ---
+
   const params = useParams();
   const productIdParam = params?.product_id || params?.productId;
 
-  // State
+  // --- State ---
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedGalleryImageUrl, setSelectedGalleryImageUrl] = useState<
@@ -65,7 +82,7 @@ export default function ProductDetails({
   const [quantity, setQuantity] = useState<number>(1);
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
 
-  // Hooks
+  // --- Hooks ---
   const { hasDiscount, calculatePrice, userTier, discountPercentage } =
     useTierDiscount();
   const { product, isLoading, error } = useProductDetails({
@@ -73,7 +90,7 @@ export default function ProductDetails({
     autoLoad: true,
   });
 
-  // Determine Display Mode
+  // --- Memos ---
   const isGalleryMode = useMemo(() => {
     if (!product?.variations || product.variations.length <= 1) return false;
     const firstColor = product.variations[0].color;
@@ -81,10 +98,8 @@ export default function ProductDetails({
     return product.variations.every(
       (v) => v.color === firstColor && v.size === firstSize,
     );
-    // Replace with `product?.variationDisplayMode === 'ImageGallery'` if using the flag
   }, [product]);
 
-  // Memos
   const currentVariation = useMemo<Variation | null>(() => {
     if (
       isGalleryMode ||
@@ -116,10 +131,9 @@ export default function ProductDetails({
 
   const tierName = userTier.charAt(0) + userTier.slice(1).toLowerCase();
 
-  // Effects
+  // --- Effects ---
   useEffect(() => {
     setSelectedGalleryImageUrl(null);
-
     if (!isGalleryMode && product?.variations?.length) {
       if (product.variations.length === 1) {
         const uniqueVariation = product.variations[0];
@@ -137,7 +151,7 @@ export default function ProductDetails({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product, isGalleryMode]);
 
-  // Handlers
+  // --- Handlers ---
   const handleColorSelect = (color: string): void => {
     if (isGalleryMode) return;
     setSelectedColor(color);
@@ -212,20 +226,18 @@ export default function ProductDetails({
     return (
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-8 lg:gap-12 animate-pulse p-1">
         <div className="md:col-span-2">
-          {" "}
-          <Skeleton className="aspect-square w-full bg-muted rounded-lg" />{" "}
+          <Skeleton className="aspect-square w-full bg-muted rounded-lg" />
         </div>
         <div className="md:col-span-3 space-y-4 p-6 md:p-8">
-          <Skeleton className="h-8 w-3/4 bg-muted" />{" "}
+          <Skeleton className="h-8 w-3/4 bg-muted" />
           <Skeleton className="h-6 w-1/4 bg-muted" />
-          <Skeleton className="h-4 w-full bg-muted" />{" "}
+          <Skeleton className="h-4 w-full bg-muted" />
           <Skeleton className="h-4 w-5/6 bg-muted" />
-          <Skeleton className="h-16 w-full bg-muted" />{" "}
+          <Skeleton className="h-16 w-full bg-muted" />
           <Skeleton className="h-12 w-full bg-muted" />
           <div className="flex gap-3 mt-auto pt-2">
-            {" "}
-            <Skeleton className="h-11 flex-1 bg-muted rounded-md" />{" "}
-            <Skeleton className="h-11 flex-1 bg-muted rounded-md" />{" "}
+            <Skeleton className="h-11 flex-1 bg-muted rounded-md" />
+            <Skeleton className="h-11 flex-1 bg-muted rounded-md" />
           </div>
         </div>
       </div>
@@ -244,34 +256,28 @@ export default function ProductDetails({
   if (!product.variations || product.variations.length === 0) {
     return (
       <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 lg:gap-12 bg-card text-card-foreground rounded-lg shadow-sm border border-border overflow-hidden p-1">
+        <div className="relative grid grid-cols-1 md:grid-cols-5 gap-8 lg:gap-12 bg-card text-card-foreground rounded-lg shadow-sm border border-border overflow-hidden p-1 md:p-4 lg:p-6">
           <div className="md:col-span-2 relative p-4 md:p-6 self-start">
-            {" "}
             <ProductImage
               imageUrl={product.productImgUrl}
               productName={product.productName}
-            />{" "}
+            />
           </div>
           <div className="md:col-span-3 p-6 md:p-8 flex flex-col">
             <h1 className="text-2xl lg:text-3xl font-bold mb-2">
-              {" "}
-              {product.productName}{" "}
+              {product.productName}
             </h1>
             <p className="text-2xl lg:text-3xl font-bold mb-4">
-              {" "}
-              {formatCurrency(product.sellingPrice)}{" "}
+              {formatCurrency(product.sellingPrice)}
             </p>
             <p className="text-sm text-muted-foreground mb-6 line-clamp-3">
-              {" "}
-              {product.description}{" "}
+              {product.description}
             </p>
             <div className="mt-auto pt-4 border-t border-border">
-              {" "}
               <p className="text-center text-muted-foreground font-medium">
-                {" "}
                 This product is currently unavailable or has no selectable
-                options.{" "}
-              </p>{" "}
+                options.
+              </p>
             </div>
           </div>
         </div>
@@ -279,7 +285,7 @@ export default function ProductDetails({
     );
   }
 
-  // Determine image to show in the main display
+  // Determine image to show
   const mainDisplayImageUrl = isGalleryMode
     ? selectedGalleryImageUrl || product.productImgUrl
     : currentVariation?.imageUrl || product.productImgUrl;
@@ -287,14 +293,40 @@ export default function ProductDetails({
   // --- Main Render ---
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-8 lg:gap-12 bg-card text-card-foreground rounded-lg shadow-sm border border-border overflow-hidden p-1">
+      {/* Added 'relative' positioning context to the main card container */}
+      <div className="relative grid grid-cols-1 md:grid-cols-5 gap-8 lg:gap-12 bg-card text-card-foreground rounded-lg shadow-sm border border-border overflow-hidden p-1 md:p-4 lg:p-6">
+        {/* Back/Close Button positioned inside the card */}
+        <div className="absolute top-3 right-3 z-20">
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              {backUrl && (
+                <Link href={backUrl} passHref legacyBehavior>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent/50 rounded-full"
+                      aria-label={`Back to ${productCategoryName}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                </Link>
+              )}
+              <TooltipContent>
+                <p>Back to {productCategoryName || "Collection"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         {/* Image Column (LEFT) */}
-        <div className="md:col-span-2 relative p-4 md:p-6 self-start flex flex-col">
-          {" "}
-          {/* Added flex flex-col */}
+        {/* Added padding top to make space for absolute buttons */}
+        <div className="md:col-span-2 relative self-start flex flex-col pt-6 md:pt-0">
           {/* Discount Badge */}
           {hasDiscount && displayVariationForPriceAndStock && (
-            <div className="absolute top-2 left-2 z-10 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow">
+            <div className="absolute top-3 left-3 z-10 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow">
+              {" "}
+              {/* Adjusted positioning slightly */}
               {Math.round(discountPercentage * 100)}% {tierName} Discount
             </div>
           )}
@@ -304,19 +336,21 @@ export default function ProductDetails({
             productName={product.productName}
           />
           {/* Wishlist Button */}
-          <div className="absolute top-2 right-2 z-10">
+          {/* Moved Wishlist outside the Image for better stacking, position near top-left corner */}
+          <div className="absolute top-3 left-3 z-10">
+            {/* Show wishlist button only if there's a variation to add (usually the primary one) */}
             {primaryVariationForCart && (
               <WishlistButton
                 variationId={primaryVariationForCart.id}
                 productName={product.productName}
-                className="bg-card/70 hover:bg-card/90 backdrop-blur-sm"
+                className="bg-card/70 hover:bg-card/90 backdrop-blur-sm p-1.5 rounded-full" // Adjust styling as needed
               />
             )}
           </div>
           {/* Image Thumbnail Selector (Conditionally Rendered Below Image) */}
           {isGalleryMode &&
             product.variations &&
-            product.variations.length > 0 && ( // Ensure variations exist
+            product.variations.length > 0 && (
               <div className="mt-4 w-full">
                 <ImageThumbnailSelector
                   variations={product.variations}
@@ -326,11 +360,12 @@ export default function ProductDetails({
                 />
               </div>
             )}
-        </div>{" "}
-        {/* End Image Column */}
+        </div>
         {/* Details Column (RIGHT) */}
-        <div className="md:col-span-3 p-6 md:p-8 flex flex-col">
-          <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+        {/* Added padding top to align with image column roughly */}
+        <div className="md:col-span-3 flex flex-col pt-6 md:pt-0">
+          {/* Title - Added padding-right to avoid overlapping with X button */}
+          <h1 className="text-2xl lg:text-3xl font-bold mb-2 pr-10">
             {product.productName}
           </h1>
           {/* Rating */}
@@ -348,7 +383,7 @@ export default function ProductDetails({
             ))}
             <span className="text-sm text-muted-foreground ml-1">(4.5)</span>
           </div>
-          {/* Price Display */}
+          {/* Price display */}
           <div className="mb-4 min-h-[3.5rem]">
             {displayVariationForPriceAndStock ? (
               hasDiscount ? (
@@ -387,11 +422,11 @@ export default function ProductDetails({
             {product.description}
           </p>
 
-          {/* Variation Selector (Conditionally Rendered) */}
+          {/* Conditional Variation/Image Selector */}
           <div className="mb-5">
             {!isGalleryMode &&
               product.variations &&
-              product.variations.length > 0 && ( // Only render if NOT gallery mode AND variations exist
+              product.variations.length > 0 && (
                 <VariationSelector
                   variations={product.variations}
                   selectedColor={selectedColor}
@@ -504,10 +539,11 @@ export default function ProductDetails({
                     : "text-red-600",
                 )}
               >
+                {" "}
                 {(isGalleryMode ? primaryVariationForCart : currentVariation)!
                   .quantity > 0
                   ? `In Stock (${(isGalleryMode ? primaryVariationForCart : currentVariation)!.quantity} available)`
-                  : "Out of Stock"}
+                  : "Out of Stock"}{" "}
               </p>
             )}
             {/* Unavailable message */}
@@ -539,16 +575,17 @@ export default function ProductDetails({
               }
               onClick={() => handleAddToCart(false)}
             >
+              {" "}
               {isAddingToCart ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
+              ) : null}{" "}
               {(isGalleryMode ? primaryVariationForCart : currentVariation) &&
               (isGalleryMode ? primaryVariationForCart : currentVariation)!
                 .quantity <= 0
                 ? "Out of Stock"
                 : isAddingToCart
                   ? "Adding..."
-                  : "Add to Cart"}
+                  : "Add to Cart"}{" "}
             </Button>
             <Button
               variant="default"
@@ -565,12 +602,13 @@ export default function ProductDetails({
               }
               onClick={() => handleAddToCart(true)}
             >
-              Buy Now
+              {" "}
+              Buy Now{" "}
             </Button>
           </div>
-        </div>
+        </div>{" "}
         {/* End Details Column */}
-      </div>
+      </div>{" "}
       {/* End Grid */}
     </div> // End Max Width Container
   );
