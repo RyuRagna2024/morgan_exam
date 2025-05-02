@@ -1,10 +1,11 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Check, LogOutIcon, Monitor, Moon, Sun, UserIcon } from "lucide-react";
+import { Check, LogOutIcon, Monitor, Moon, Sun, UserIcon, Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useState } from "react";
+import { toast } from "sonner"; // <<< --- ADDED IMPORT --- <<<
 
 import UserAvatar from "./UserAvatar";
 import { useSession } from "../SessionProvider";
@@ -19,9 +20,8 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
-import { Loader2 } from "lucide-react";
 
 interface UserButtonProps {
   className?: string;
@@ -33,17 +33,20 @@ export default function UserButton({ className }: UserButtonProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
+  if (!user) {
+    return null;
+  }
+
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
     try {
       setIsLoggingOut(true);
-      // Ensure the dropdown stays open during logout
       setIsOpen(true);
-      // Add a small delay to ensure the loading state is visible
       await new Promise((resolve) => setTimeout(resolve, 500));
       await logout();
     } catch (error) {
       console.error("Logout failed:", error);
+      toast.error("Logout failed. Please try again."); // Now 'toast' is recognized
       setIsLoggingOut(false);
       setIsOpen(false);
     }
@@ -59,7 +62,8 @@ export default function UserButton({ className }: UserButtonProps) {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>Logged in as {user.displayName}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <Link href={`/customer`}>
+        {/* Adjust link for customer-pro section */}
+        <Link href={`/pro/account`}> {/* Example path, adjust as needed */}
           <DropdownMenuItem>
             <UserIcon className="mr-2 size-4" />
             My Account
@@ -96,7 +100,7 @@ export default function UserButton({ className }: UserButtonProps) {
           onClick={handleLogout}
           disabled={isLoggingOut}
           className={cn(
-            "flex items-center justify-between",
+            "flex items-center justify-between cursor-pointer",
             isLoggingOut && "cursor-not-allowed opacity-50",
           )}
         >

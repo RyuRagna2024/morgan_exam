@@ -1,10 +1,10 @@
-// app/(admin)/admin/(sidebar)(customers)/customers/support/page.tsx
+// app/(admin)/admin/(sidebar)/(customers)/customers/support/page.tsx
 
 import React from "react";
 import prisma from "@/lib/prisma"; // Adjust path if needed
 import { TicketStatus } from "@prisma/client";
 import { Prisma } from "@prisma/client"; // Import Prisma namespace
-import { TicketTable } from "./TicketTable";
+import { TicketTable } from "./TicketTable"; // Ensure correct path
 
 // Define the argument type for the findMany query explicitly
 const ticketQueryArgs = {
@@ -48,16 +48,13 @@ export default async function AdminSupportTicketsPage() {
   return (
     // Main page container
     <div className="container mx-auto px-4 py-8">
-      {/* --- ADDED HEADER BAR --- */}
-      <div className="mb-6 bg-gradient-to-r from-cyan-500 to-blue-600 shadow rounded-lg px-6 py-4">
-        <h1 className="text-2xl font-semibold text-white">Tickets List</h1>
-      </div>
-      {/* --- END OF HEADER BAR --- */}
+      {/* --- REMOVED GRADIENT BAR, ADDED STANDARD HEADER --- */}
+      <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-100">
+        Tickets List
+      </h1>
+      {/* --- END STANDARD HEADER --- */}
 
-      {/* Original H1 removed as title is now in the bar */}
-      {/* <h1 className="text-3xl font-bold mb-6 text-gray-800">Tickets List</h1> */}
-
-      {/* Render the table */}
+      {/* Render the table (TicketTable should already handle dark mode) */}
       <TicketTable tickets={tickets} />
     </div>
   );
