@@ -1,4 +1,4 @@
-// src/app/admin/customers/support/page.tsx
+// app/(admin)/admin/(sidebar)(customers)/customers/support/page.tsx
 
 import React from "react";
 import prisma from "@/lib/prisma"; // Adjust path if needed

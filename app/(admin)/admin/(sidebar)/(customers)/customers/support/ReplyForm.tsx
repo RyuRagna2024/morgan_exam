@@ -1,15 +1,13 @@
-// src/components/admin/support/ReplyForm.tsx
-
 "use client";
 
 import React, { useState, useRef, useTransition } from "react";
-import { Card, CardContent } from "@/components/ui/card"; // Card for container
-import { Textarea } from "@/components/ui/textarea"; // Shadcn Textarea
-import { Button } from "@/components/ui/button"; // Shadcn Button
+import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { LoaderCircle, Send } from "lucide-react";
 import { toast } from "sonner";
-// Adjust path to where the add reply action will be created
-import { addReply } from "@/app/(admin)/admin/(sidebar)/(customers)/customers/support/_actions/add-reply"; // We need to create this action
+// Ensure correct path - creating an _actions folder is common practice
+import { addReply } from "./_actions/add-reply";
 
 interface ReplyFormProps {
   ticketId: string;
@@ -17,7 +15,7 @@ interface ReplyFormProps {
 
 const ReplyForm: React.FC<ReplyFormProps> = ({ ticketId }) => {
   const [replyText, setReplyText] = useState("");
-  const [isPending, startTransition] = useTransition(); // For loading state
+  const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -29,13 +27,12 @@ const ReplyForm: React.FC<ReplyFormProps> = ({ ticketId }) => {
 
     startTransition(async () => {
       try {
-        const result = await addReply(ticketId, replyText); // Call server action
-
+        const result = await addReply(ticketId, replyText);
         if (result.success) {
           toast.success(result.message || "Reply sent successfully!");
-          setReplyText(""); // Clear textarea on success
-          // Optional: formRef.current?.reset(); // Can also reset the form ref
-          // Data refresh is handled by revalidatePath in the server action
+          setReplyText(""); // Clear textarea
+          // Refresh logic should be handled by server action revalidation
+          // Or potentially router.refresh() if needed immediately client-side
         } else {
           toast.error(result.message || "Failed to send reply.");
         }
@@ -47,26 +44,32 @@ const ReplyForm: React.FC<ReplyFormProps> = ({ ticketId }) => {
   };
 
   return (
-    <Card>
-      {/* <CardHeader><CardTitle>Reply</CardTitle></CardHeader> // Optional Header */}
+    // *** ADDED DARK MODE STYLES ***
+    <Card className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
       <CardContent className="pt-6">
-        {" "}
-        {/* Add padding if no header */}
         <form
           ref={formRef}
           onSubmit={handleSubmit}
           className="flex items-start space-x-3"
         >
+          {/* *** ADDED DARK MODE STYLES *** */}
           <Textarea
             placeholder="Type your message..."
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             required
             rows={3}
-            className="flex-grow resize-none" // Allow textarea to grow
-            disabled={isPending} // Disable while submitting
+            className="flex-grow resize-none bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-primary dark:focus:ring-offset-gray-800"
+            disabled={isPending}
           />
-          <Button type="submit" disabled={!replyText.trim() || isPending}>
+          {/* Shadcn Button should handle dark mode, ensure variant/styling is appropriate */}
+          <Button
+            type="submit"
+            disabled={!replyText.trim() || isPending}
+            size="lg"
+          >
+            {" "}
+            {/* Made button slightly larger */}
             {isPending ? (
               <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
             ) : (

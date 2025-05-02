@@ -6,15 +6,15 @@ import { Session as LuciaSession } from "lucia";
 import { logout } from "../(auth)/actions"; // Ensure this path is correct
 
 // --- Define UserRole enum (Include ALL roles & EXPORT IT) ---
-export type UserRole = // <<< EXPORT ADDED
-
-    | "USER"
-    | "CUSTOMER"
-    | "PROCUSTOMER"
-    | "EDITOR"
-    | "ADMIN"
-    | "SUPERADMIN"
-    | "MANAGER";
+// *** ADDED MANAGER ROLE ***
+export type UserRole =
+  | "USER"
+  | "CUSTOMER"
+  | "PROCUSTOMER"
+  | "EDITOR"
+  | "MANAGER" // <<< ADDED
+  | "ADMIN"
+  | "SUPERADMIN";
 
 // Define the SessionUser type specific to ADMIN context
 export interface SessionUser {
@@ -25,7 +25,7 @@ export interface SessionUser {
   lastName: string;
   displayName: string;
   avatarUrl: string | null;
-  role: UserRole; // Uses the exported UserRole type
+  role: UserRole; // Uses the exported UserRole type (now including MANAGER)
 }
 
 // Extend Lucia's Session type with the ADMIN SessionUser type
@@ -48,7 +48,7 @@ export default function SessionProvider({
 }: {
   children: React.ReactNode;
   value: {
-    user: SessionUser | null;
+    user: SessionUser | null; // Should ideally align with the updated UserRole type
     session: LuciaSession | null;
   };
 }) {
